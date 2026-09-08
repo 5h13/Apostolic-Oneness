@@ -142,6 +142,8 @@ let state = {
   passwordSaved: false,
   submitTitle: "",
   submitBody: "",
+  editingArticleId: null,
+  draftSaved: false,
   err: "",
   loading: true
 };
@@ -323,6 +325,10 @@ async function handleSignOut(){
   state.passwordDraft = "";
   state.passwordSaved = false;
   state.nameDraft = "";
+  state.submitTitle = "";
+  state.submitBody = "";
+  state.editingArticleId = null;
+  state.draftSaved = false;
   state.err = "";
   await loadArticles();
   render();
@@ -341,6 +347,78 @@ function toggleArticle(id){
   render();
 }
 
+async function saveDraft(){
+  const title = state.submitTitle.trim();
+  const body = state.submitBody.trim();
+  if(!title && !body){
+    state.err = "Write something before saving a draft.";
+    render();
+    return;
+  }
+  state.err = "";
+  if(state.editingArticleId){
+    const { error } = await sb.from('articles')
+      .update({ title, body })
+      .eq('id', state.editingArticleId);
+    if(error){
+      state.err = error.message;
+      render();
+      return;
+    }
+  } else {
+    const { data, error } = await sb.from('articles')
+      .insert({
+        title,
+        body,
+        author_email: state.session.user.email,
+        author_name: displayName(),
+        status: 'draft'
+      })
+      .select()
+      .single();
+    if(error){
+      state.err = error.message;
+      render();
+      return;
+    }
+    state.editingArticleId = data.id;
+  }
+  state.draftSaved = true;
+  await loadArticles();
+  render();
+}
+
+function newSubmission(){
+  state.editingArticleId = null;
+  state.submitTitle = "";
+  state.submitBody = "";
+  state.draftSaved = false;
+  state.err = "";
+  render();
+}
+
+function editDraft(id){
+  const a = state.articles.find(x => x.id === id);
+  if(!a) return;
+  state.editingArticleId = id;
+  state.submitTitle = a.title;
+  state.submitBody = a.body;
+  state.draftSaved = false;
+  state.err = "";
+  state.view = "submit";
+  render();
+}
+
+async function deleteDraft(id){
+  const { error } = await sb.from('articles').delete().eq('id', id);
+  if(error){
+    state.err = error.message;
+  }
+  if(state.editingArticleId === id) newSubmission();
+  await loadArticles();
+  render();
+}
+
 async function submitArticle(){
   const title = state.submitTitle.trim();
   const body = state.submitBody.trim();
@@ -350,12 +428,19 @@ async function submitArticle(){
     return;
   }
   state.err = "";
-  const { error } = await sb.from('articles').insert({
-    title,
-    body,
-    author_email: state.session.user.email,
-    author_name: displayName()
-  });
+  let error;
+  if(state.editingArticleId){
+    const patch = { title, body, status: isEditor() ? 'approved' : 'pending' };
+    if(isEditor()) patch.approved_at = new Date().toISOString();
+    ({ error } = await sb.from('articles').update(patch).eq('id', state.editingArticleId));
+  } else {
+    ({ error } = await sb.from('articles').insert({
+      title,
+      body,
+      author_email: state.session.user.email,
+      author_name: displayName()
+    }));
+  }
   if(error){
     state.err = error.message;
     render();
@@ -363,6 +448,8 @@ async function submitArticle(){
   }
   state.submitTitle = "";
   state.submitBody = "";
+  state.editingArticleId = null;
+  state.draftSaved = false;
   state.view = isEditor() ? "feed" : "desk";
   await loadArticles();
   render();
@@ -382,6 +469,20 @@ async function setStatus(id, status){
 function stampHtml(status){
   const label = status === "approved" ? "Approved" : status === "pending" ? "Pending" : "Declined";
   return `<div class="stamp ${status}">${label}</div>`;
+}
+
+function draftCard(a){
+  const excerpt = a.body.length > 160 ? a.body.slice(0,160).trim() + "…" : a.body;
+  return `
+    <div class="queue-item">
+      <h3>${escapeHtml(a.title || "(untitled draft)")}</h3>
+      <div class="byline">Draft · started ${fmtDate(a.created_at)}</div>
+      <div class="excerpt" style="margin-top:8px;">${excerpt ? escapeHtml(excerpt) : '<em>No text yet.</em>'}</div>
+      <div class="queue-actions">
+        <button class="btn btn-gold btn-small" onclick="editDraft('${a.id}')">Continue editing</button>
+        <button class="btn btn-rust btn-small" onclick="deleteDraft('${a.id}')">Discard</button>
+      </div>
+    </div>`;
 }
 
 function articleCard(a, opts){
@@ -571,6 +672,7 @@ function renderMain(){
   if(state.view === 'submit'){
     main.innerHTML = `
       <div class="panel">
+        ${state.editingArticleId ? `<div class="field-note" style="margin-bottom:14px;">Editing a saved draft. <a href="#" onclick="newSubmission();return false;" style="color:var(--gold);">Start a new article instead</a></div>` : ''}
         <div class="field">
           <label>Headline</label>
           <input type="text" id="submitTitle" placeholder="A working title" value="${escapeHtml(state.submitTitle)}">
@@ -581,12 +683,16 @@ function renderMain(){
         </div>
         <div class="submit-row">
           <div class="field-note">${isEditor() ? "Publishes immediately — you're the editor." : "Goes to the editor for approval before it's published."}</div>
-          <button class="btn btn-gold" onclick="submitArticle()">${isEditor() ? 'Publish' : 'Send for approval'}</button>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost" onclick="saveDraft()">Save draft</button>
+            <button class="btn btn-gold" onclick="submitArticle()">${isEditor() ? 'Publish' : 'Send for approval'}</button>
+          </div>
         </div>
+        ${state.draftSaved ? `<div class="hint" style="color:var(--green);margin-top:10px;text-align:left;">Draft saved — only visible to you until you submit it.</div>` : ''}
         ${state.err ? `<div class="hint" style="color:var(--rust);margin-top:10px;text-align:left;">${escapeHtml(state.err)}</div>` : ''}
       </div>`;
-    document.getElementById('submitTitle').oninput = e => state.submitTitle = e.target.value;
-    document.getElementById('submitBody').oninput = e => state.submitBody = e.target.value;
+    document.getElementById('submitTitle').oninput = e => { state.submitTitle = e.target.value; state.draftSaved = false; };
+    document.getElementById('submitBody').oninput = e => { state.submitBody = e.target.value; state.draftSaved = false; };
     return;
   }
 
@@ -596,7 +702,17 @@ function renderMain(){
       main.innerHTML = `<div class="empty"><div class="glyph">†</div><p>Nothing submitted yet.</p><p>Head to Submit to write your first article of faith.</p></div>`;
       return;
     }
-    main.innerHTML = mine.map(a => articleCard(a, {showStamp:true})).join('');
+    const drafts = mine.filter(a => a.status === 'draft');
+    const others = mine.filter(a => a.status !== 'draft');
+    let html = '';
+    if(drafts.length){
+      html += `<div class="field-note" style="margin-bottom:10px;">Drafts — only visible to you</div>`;
+      html += drafts.map(a => draftCard(a)).join('');
+    }
+    if(others.length){
+      html += others.map(a => articleCard(a, {showStamp:true})).join('');
+    }
+    main.innerHTML = html;
     return;
   }
 
