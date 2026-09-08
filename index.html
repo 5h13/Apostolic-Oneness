@@ -392,6 +392,8 @@ async function handleSignOut(){
   state.userLiked = false;
   state.comments = [];
   state.commentDraft = "";
+  state.replyTargetId = null;
+  state.replyDrafts = {};
   state.err = "";
   await loadArticles();
   render();
@@ -588,6 +590,8 @@ function selectArticle(id){
   state.userLiked = false;
   state.comments = [];
   state.commentDraft = "";
+  state.replyTargetId = null;
+  state.replyDrafts = {};
   state.err = "";
   render();
   if(state.view === 'feed'){
@@ -712,17 +716,22 @@ async function deleteComment(commentId, articleId){
   await loadArticleExtras(articleId);
 }
 
-function startReply(comment){
+function startReply(commentId){
+  const comment = state.comments.find(c => c.id === commentId);
+  if(!comment){ return; }
   const name = comment.author_name || comment.author_email || 'user';
+  const tagged = '@' + name + ' ';
   state.replyTargetId = comment.id;
-  state.replyDrafts[comment.id] = state.replyDrafts[comment.id] || '@' + name + ' ';
+  state.replyDrafts[comment.id] = state.replyDrafts[comment.id] && state.replyDrafts[comment.id].trim() ? state.replyDrafts[comment.id] : tagged;
   state.err = "";
   render();
   const input = document.getElementById('replyInput-' + comment.id);
   if(input){
     input.focus();
+    const target = tagged;
+    const open = input.value.startsWith(target) ? target.length : 0;
     const end = input.value.length;
-    input.setSelectionRange(end, end);
+    input.setSelectionRange(open, end);
   }
 }
 
@@ -858,10 +867,10 @@ function feedDetailHtml(a){
               ${(state.session && (c.author_email === state.session.user.email || isEditor())) ? `<a href="#" class="toggle-link" onclick="deleteComment('${c.id}','${a.id}');return false;">Delete</a>` : ''}
             </div>
             <div class="comment-body">${escapeHtml(c.body)}</div>
-            ${canInteract ? `<div class="comment-actions"><a href="#" class="toggle-link" onclick="startReply(${JSON.stringify(c)});return false;">Reply</a></div>` : ''}
+            ${canInteract ? `<div class="comment-actions"><a href="#" class="toggle-link" onclick="startReply('${c.id}');return false;">Reply</a></div>` : ''}
             ${state.replyTargetId === c.id ? `
               <div class="comment-reply">
-                <textarea id="replyInput-${c.id}" placeholder="Reply to ${escapeHtml(c.author_name || c.author_email)}...">${escapeHtml(state.replyDrafts[c.id] || '@' + (c.author_name || c.author_email) + ' ')}</textarea>
+                <textarea id="replyInput-${c.id}" placeholder="Reply to ${escapeHtml(c.author_name || c.author_email)}..." style="margin-top:6px;">${escapeHtml(state.replyDrafts[c.id] || '@' + (c.author_name || c.author_email) + ' ')}</textarea>
                 <div class="reply-actions">
                   <button class="btn btn-ghost btn-small" onclick="cancelReply()">Cancel</button>
                   <button class="btn btn-gold btn-small" onclick="postReply('${a.id}','${c.id}')">Post reply</button>
