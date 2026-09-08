@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apostolic Oneness — Articles of Faith</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink-900:#14161c;
+    --ink-800:#1b1e27;
+    --ink-700:#242833;
+    --ink-line:#333846;
+    --paper:#ecedf2;
+    --slate:#8890a2;
+    --gold:#cda45e;
+    --gold-dim:rgba(205,164,94,0.14);
+    --green:#6fae82;
+    --green-dim:rgba(111,174,130,0.14);
+    --amber:#d9a441;
+    --amber-dim:rgba(217,164,65,0.14);
+    --rust:#b85c4f;
+    --rust-dim:rgba(184,92,79,0.14);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--ink-900);color:var(--paper);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  a{color:inherit;}
+  .wrap{max-width:760px;margin:0 auto;padding:0 20px 80px;}
+  .masthead{padding:40px 0 0;}
+  .masthead-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;}
+  .brand{display:flex;flex-direction:column;gap:6px;}
+  .brand h1{font-family:'Fraunces',serif;font-weight:600;font-size:40px;letter-spacing:-0.01em;margin:0;}
+  .brand .tagline{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--slate);}
+  .rule-thick{border:none;border-top:2px solid var(--paper);margin:24px 0 0;}
+  .auth-box{min-width:240px;}
+  .auth-box .who{display:flex;align-items:center;gap:10px;background:var(--ink-800);border:1px solid var(--ink-line);border-radius:8px;padding:8px 12px;font-size:13px;}
+  .auth-box .who .seal{width:22px;height:22px;border-radius:50%;background:var(--gold-dim);color:var(--gold);display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;flex-shrink:0;}
+  .auth-box .name{font-weight:500;}
+  .auth-box .role-admin{color:var(--gold);font-size:11px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.06em;}
+  .auth-box .role-user{color:var(--slate);font-size:11px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.06em;}
+  .auth-box .signout{margin-left:auto;background:none;border:none;color:var(--slate);cursor:pointer;font-size:12px;text-decoration:underline;padding:0;font-family:'Inter',sans-serif;}
+  .auth-box .signout:hover{color:var(--paper);}
+  .login-form{display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
+  .login-form .row{display:flex;gap:8px;}
+  input[type=text],input[type=email]{background:var(--ink-800);border:1px solid var(--ink-line);color:var(--paper);border-radius:6px;padding:8px 10px;font-size:13px;font-family:'Inter',sans-serif;outline:none;}
+  input[type=text]:focus,input[type=email]:focus,textarea:focus{border-color:var(--gold);}
+  .login-form input{width:190px;}
+  .btn{background:var(--paper);color:var(--ink-900);border:none;border-radius:6px;padding:8px 14px;font-family:'Inter',sans-serif;font-weight:500;font-size:13px;cursor:pointer;}
+  .btn:hover{opacity:0.88;}
+  .btn-ghost{background:none;border:1px solid var(--ink-line);color:var(--paper);}
+  .btn-ghost:hover{border-color:var(--gold);color:var(--gold);}
+  .btn-gold{background:var(--gold);color:#241a08;}
+  .btn-rust{background:none;border:1px solid var(--rust);color:var(--rust);}
+  .btn-small{padding:5px 10px;font-size:12px;}
+  .hint{font-size:11px;color:var(--slate);margin-top:2px;text-align:right;}
+  .nav{display:flex;gap:2px;margin-top:28px;flex-wrap:wrap;}
+  .nav button{background:none;border:none;color:var(--slate);font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;padding:10px 16px;cursor:pointer;border-bottom:2px solid transparent;}
+  .nav button.active{color:var(--paper);border-bottom-color:var(--gold);}
+  .nav button:hover{color:var(--paper);}
+  .nav .count{display:inline-block;margin-left:6px;background:var(--amber-dim);color:var(--amber);border-radius:10px;padding:1px 6px;font-size:10px;}
+  main{padding-top:32px;}
+  .article{padding:26px 0;border-bottom:1px solid var(--ink-line);}
+  .article:first-child{padding-top:0;}
+  .article-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;}
+  .article h2{font-family:'Fraunces',serif;font-weight:600;font-size:24px;line-height:1.25;margin:0 0 8px;cursor:pointer;}
+  .article h2:hover{color:var(--gold);}
+  .byline{font-size:12px;color:var(--slate);font-family:'IBM Plex Mono',monospace;}
+  .byline b{color:var(--paper);font-weight:500;font-family:'Inter',sans-serif;}
+  .excerpt{margin-top:12px;color:#c3c6cf;font-size:15px;line-height:1.65;}
+  .body-text{margin-top:16px;color:#d6d8de;font-size:16px;line-height:1.75;white-space:pre-wrap;}
+  .article-actions{margin-top:14px;display:flex;gap:8px;}
+  .stamp{flex-shrink:0;width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:0.04em;text-transform:uppercase;border:1.5px solid currentColor;transform:rotate(-8deg);line-height:1.2;}
+  .stamp.approved{color:var(--green);background:var(--green-dim);}
+  .stamp.pending{color:var(--amber);background:var(--amber-dim);}
+  .stamp.rejected{color:var(--rust);background:var(--rust-dim);}
+  .empty{padding:60px 0;text-align:center;color:var(--slate);}
+  .empty .glyph{font-family:'Fraunces',serif;font-size:32px;color:var(--ink-line);margin-bottom:10px;}
+  .empty p{margin:4px 0;font-size:14px;}
+  .panel{background:var(--ink-800);border:1px solid var(--ink-line);border-radius:10px;padding:24px;}
+  .panel label{display:block;font-family:'IBM Plex Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--slate);margin-bottom:6px;}
+  .field{margin-bottom:18px;}
+  .field input[type=text]{width:100%;font-size:15px;padding:10px 12px;}
+  textarea{width:100%;min-height:220px;resize:vertical;background:var(--ink-900);border:1px solid var(--ink-line);color:var(--paper);border-radius:6px;padding:12px;font-family:'Inter',sans-serif;font-size:15px;line-height:1.6;outline:none;}
+  textarea:focus{border-color:var(--gold);}
+  .submit-row{display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:16px;flex-wrap:wrap;}
+  .field-note{font-size:12px;color:var(--slate);}
+  .queue-item{background:var(--ink-800);border:1px solid var(--ink-line);border-radius:10px;padding:20px;margin-bottom:14px;}
+  .queue-item h3{font-family:'Fraunces',serif;font-size:19px;margin:0 0 6px;font-weight:600;}
+  .queue-actions{display:flex;gap:8px;margin-top:14px;}
+  .locked-msg{padding:40px 0;text-align:center;color:var(--slate);font-size:14px;}
+  .locked-msg .glyph{font-family:'Fraunces',serif;font-size:28px;color:var(--ink-line);margin-bottom:8px;}
+  .banner-note{font-size:13px;border-radius:6px;padding:10px 12px;margin-bottom:18px;}
+  @media(max-width:520px){
+    .brand h1{font-size:30px;}
+    .masthead-top{flex-direction:column;}
+    .login-form{align-items:stretch;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="masthead">
+    <div class="masthead-top">
+      <div class="brand">
+        <h1>Apostolic Oneness</h1>
+        <div class="tagline">articles of faith · reviewed and published</div>
+      </div>
+      <div class="auth-box" id="authBox"></div>
+    </div>
+    <hr class="rule-thick">
+  </div>
+  <div class="nav" id="nav"></div>
+  <div id="banner"></div>
+  <main id="main"></main>
+</div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+const sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+const EDITOR_EMAIL = window.EDITOR_EMAIL;
+
+let state = {
+  session: null,
+  view: "feed",
+  articles: [],
+  openArticleId: null,
+  loginEmail: "",
+  magicLinkSent: false,
+  nameDraft: "",
+  submitTitle: "",
+  submitBody: "",
+  err: "",
+  loading: true
+};
+
+function isEditor(){
+  return !!state.session && state.session.user.email === EDITOR_EMAIL;
+}
+function displayName(){
+  if(!state.session) return "";
+  return state.session.user.user_metadata && state.session.user.user_metadata.full_name || "";
+}
+function initials(name){
+  if(!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  return (parts[0][0] + (parts[1] ? parts[1][0] : "")).toUpperCase();
+}
+function fmtDate(iso){
+  return new Date(iso).toLocaleDateString(undefined, {year:'numeric', month:'short', day:'numeric'});
+}
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.innerText = s;
+  return d.innerHTML;
+}
+
+async function sendMagicLink(){
+  const email = state.loginEmail.trim().toLowerCase();
+  if(!email || !email.includes("@")){
+    state.err = "Enter a valid email.";
+    render();
+    return;
+  }
+  state.err = "";
+  const { error } = await sb.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: window.location.origin + window.location.pathname }
+  });
+  if(error){
+    state.err = error.message;
+  } else {
+    state.magicLinkSent = true;
+  }
+  render();
+}
+
+async function saveName(){
+  const name = state.nameDraft.trim();
+  if(!name){
+    state.err = "Enter a name for your byline.";
+    render();
+    return;
+  }
+  state.err = "";
+  const { error } = await sb.auth.updateUser({ data: { full_name: name } });
+  if(error){
+    state.err = error.message;
+  } else {
+    await sb.auth.refreshSession();
+  }
+  render();
+}
+
+async function handleSignOut(){
+  await sb.auth.signOut();
+  state.view = "feed";
+  render();
+}
+
+async function loadArticles(){
+  let query = sb.from('articles').select('*').order('created_at', { ascending: false });
+  const { data, error } = await query;
+  if(!error){
+    state.articles = data || [];
+  }
+}
+
+function toggleArticle(id){
+  state.openArticleId = state.openArticleId === id ? null : id;
+  render();
+}
+
+async function submitArticle(){
+  const title = state.submitTitle.trim();
+  const body = state.submitBody.trim();
+  if(!title || !body){
+    state.err = "Both a title and article text are required.";
+    render();
+    return;
+  }
+  state.err = "";
+  const { error } = await sb.from('articles').insert({
+    title,
+    body,
+    author_email: state.session.user.email,
+    author_name: displayName()
+  });
+  if(error){
+    state.err = error.message;
+    render();
+    return;
+  }
+  state.submitTitle = "";
+  state.submitBody = "";
+  state.view = isEditor() ? "feed" : "desk";
+  await loadArticles();
+  render();
+}
+
+async function setStatus(id, status){
+  const patch = { status };
+  if(status === 'approved') patch.approved_at = new Date().toISOString();
+  const { error } = await sb.from('articles').update(patch).eq('id', id);
+  if(error){
+    state.err = error.message;
+  }
+  await loadArticles();
+  render();
+}
+
+function stampHtml(status){
+  const label = status === "approved" ? "Approved" : status === "pending" ? "Pending" : "Declined";
+  return `<div class="stamp ${status}">${label}</div>`;
+}
+
+function articleCard(a, opts){
+  opts = opts || {};
+  const open = state.openArticleId === a.id;
+  const excerpt = a.body.length > 220 ? a.body.slice(0,220).trim() + "…" : a.body;
+  return `
+    <div class="article">
+      <div class="article-head">
+        <div>
+          <h2 onclick="toggleArticle('${a.id}')">${escapeHtml(a.title)}</h2>
+          <div class="byline"><b>${escapeHtml(a.author_name || a.author_email)}</b> · ${fmtDate(a.created_at)}</div>
+        </div>
+        ${opts.showStamp ? stampHtml(a.status) : ''}
+      </div>
+      ${open ? `<div class="body-text">${escapeHtml(a.body)}</div>` : `<div class="excerpt">${escapeHtml(excerpt)}</div>`}
+      ${opts.adminControls && a.status !== 'approved' ? `
+        <div class="article-actions">
+          <button class="btn btn-gold btn-small" onclick="setStatus('${a.id}','approved')">Approve</button>
+          <button class="btn btn-rust btn-small" onclick="setStatus('${a.id}','rejected')">Decline</button>
+        </div>` : ''}
+      ${opts.adminControls && a.status === 'approved' ? `
+        <div class="article-actions">
+          <button class="btn btn-ghost btn-small" onclick="setStatus('${a.id}','pending')">Unpublish</button>
+        </div>` : ''}
+    </div>`;
+}
+
+function renderAuthBox(){
+  const box = document.getElementById('authBox');
+  if(!state.session){
+    if(state.magicLinkSent){
+      box.innerHTML = `<div class="hint" style="text-align:right;max-width:240px;">Check your inbox for a sign-in link.</div>`;
+      return;
+    }
+    box.innerHTML = `
+      <div class="login-form">
+        <div class="row">
+          <input type="email" id="loginEmail" placeholder="you@email.com" value="${escapeHtml(state.loginEmail)}">
+          <button class="btn btn-gold" onclick="sendMagicLink()">Email me a link</button>
+        </div>
+        ${state.err ? `<div class="hint" style="color:var(--rust)">${escapeHtml(state.err)}</div>` : `<div class="hint">No password — we email you a one-time sign-in link.</div>`}
+      </div>`;
+    document.getElementById('loginEmail').oninput = e => state.loginEmail = e.target.value;
+    document.getElementById('loginEmail').onkeydown = e => { if(e.key==='Enter') sendMagicLink(); };
+    return;
+  }
+  if(!displayName()){
+    box.innerHTML = `
+      <div class="login-form">
+        <div class="row">
+          <input type="text" id="nameDraft" placeholder="Name for your byline" value="${escapeHtml(state.nameDraft)}">
+          <button class="btn btn-gold" onclick="saveName()">Save</button>
+        </div>
+        ${state.err ? `<div class="hint" style="color:var(--rust)">${escapeHtml(state.err)}</div>` : ''}
+      </div>`;
+    document.getElementById('nameDraft').oninput = e => state.nameDraft = e.target.value;
+    document.getElementById('nameDraft').onkeydown = e => { if(e.key==='Enter') saveName(); };
+    return;
+  }
+  const admin = isEditor();
+  box.innerHTML = `
+    <div class="who">
+      <div class="seal">${initials(displayName())}</div>
+      <div>
+        <div class="name">${escapeHtml(displayName())}</div>
+        <div class="${admin ? 'role-admin' : 'role-user'}">${admin ? 'Editor' : 'Contributor'}</div>
+      </div>
+      <button class="signout" onclick="handleSignOut()">Sign out</button>
+    </div>`;
+}
+
+function renderNav(){
+  const nav = document.getElementById('nav');
+  if(!state.session || !displayName()){ nav.innerHTML = ''; return; }
+  const admin = isEditor();
+  const pendingCount = state.articles.filter(a => a.status === 'pending').length;
+  const tabs = [
+    {id:'feed', label:'Feed'},
+    {id:'submit', label:'Submit'},
+    {id:'desk', label:'My desk'}
+  ];
+  if(admin) tabs.push({id:'review', label:'Review desk', count: pendingCount});
+  nav.innerHTML = tabs.map(t => `
+    <button class="${state.view===t.id?'active':''}" onclick="setView('${t.id}')">
+      ${t.label}${t.count ? `<span class="count">${t.count}</span>` : ''}
+    </button>`).join('');
+}
+
+function setView(v){
+  state.view = v;
+  state.err = "";
+  render();
+}
+
+function renderBanner(){
+  const banner = document.getElementById('banner');
+  if(state.err && state.session && displayName() && state.view !== 'submit'){
+    banner.innerHTML = `<div class="banner-note" style="color:var(--rust);background:var(--rust-dim);">${escapeHtml(state.err)}</div>`;
+  } else {
+    banner.innerHTML = '';
+  }
+}
+
+function renderMain(){
+  const main = document.getElementById('main');
+
+  if(!state.session){
+    main.innerHTML = `<div class="locked-msg"><div class="glyph">†</div><p>Sign in above with your email to read, write, and (if you're the editor) publish.</p></div>`;
+    return;
+  }
+  if(!displayName()){
+    main.innerHTML = `<div class="locked-msg"><div class="glyph">†</div><p>Add a name above for your byline to continue.</p></div>`;
+    return;
+  }
+
+  if(state.view === 'feed'){
+    const approved = state.articles.filter(a => a.status === 'approved');
+    if(approved.length === 0){
+      main.innerHTML = `<div class="empty"><div class="glyph">†</div><p>No articles published yet.</p><p>The first approved article of faith will appear here.</p></div>`;
+      return;
+    }
+    main.innerHTML = approved.map(a => articleCard(a, {showStamp:false})).join('');
+    return;
+  }
+
+  if(state.view === 'submit'){
+    main.innerHTML = `
+      <div class="panel">
+        <div class="field">
+          <label>Headline</label>
+          <input type="text" id="submitTitle" placeholder="A working title" value="${escapeHtml(state.submitTitle)}">
+        </div>
+        <div class="field">
+          <label>Article</label>
+          <textarea id="submitBody" placeholder="Write the piece here.">${escapeHtml(state.submitBody)}</textarea>
+        </div>
+        <div class="submit-row">
+          <div class="field-note">${isEditor() ? "Publishes immediately — you're the editor." : "Goes to the editor for approval before it's published."}</div>
+          <button class="btn btn-gold" onclick="submitArticle()">${isEditor() ? 'Publish' : 'Send for approval'}</button>
+        </div>
+        ${state.err ? `<div class="hint" style="color:var(--rust);margin-top:10px;text-align:left;">${escapeHtml(state.err)}</div>` : ''}
+      </div>`;
+    document.getElementById('submitTitle').oninput = e => state.submitTitle = e.target.value;
+    document.getElementById('submitBody').oninput = e => state.submitBody = e.target.value;
+    return;
+  }
+
+  if(state.view === 'desk'){
+    const mine = state.articles.filter(a => a.author_email === state.session.user.email);
+    if(mine.length === 0){
+      main.innerHTML = `<div class="empty"><div class="glyph">†</div><p>Nothing submitted yet.</p><p>Head to Submit to write your first article of faith.</p></div>`;
+      return;
+    }
+    main.innerHTML = mine.map(a => articleCard(a, {showStamp:true})).join('');
+    return;
+  }
+
+  if(state.view === 'review'){
+    if(!isEditor()){
+      main.innerHTML = `<div class="locked-msg"><div class="glyph">†</div><p>This desk is for the editor only.</p></div>`;
+      return;
+    }
+    const pending = state.articles.filter(a => a.status === 'pending');
+    let html = '';
+    if(pending.length === 0){
+      html += `<div class="empty"><div class="glyph">†</div><p>Queue is clear.</p></div>`;
+    } else {
+      html += pending.map(a => `
+        <div class="queue-item">
+          <h3>${escapeHtml(a.title)}</h3>
+          <div class="byline"><b>${escapeHtml(a.author_name || a.author_email)}</b> · ${a.author_email} · ${fmtDate(a.created_at)}</div>
+          <div class="body-text">${escapeHtml(a.body)}</div>
+          <div class="queue-actions">
+            <button class="btn btn-gold" onclick="setStatus('${a.id}','approved')">Approve & publish</button>
+            <button class="btn btn-rust" onclick="setStatus('${a.id}','rejected')">Decline</button>
+          </div>
+        </div>`).join('');
+    }
+    main.innerHTML = html;
+    return;
+  }
+}
+
+function render(){
+  renderAuthBox();
+  renderNav();
+  renderBanner();
+  renderMain();
+}
+
+async function init(){
+  const { data: { session } } = await sb.auth.getSession();
+  state.session = session;
+  if(session) await loadArticles();
+  render();
+
+  sb.auth.onAuthStateChange(async (_event, session) => {
+    state.session = session;
+    state.magicLinkSent = false;
+    if(session) await loadArticles();
+    render();
+  });
+
+  sb.channel('articles-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'articles' }, async () => {
+      if(state.session){
+        await loadArticles();
+        render();
+      }
+    })
+    .subscribe();
+}
+
+init();
+</script>
+</body>
+</html>
