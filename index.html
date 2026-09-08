@@ -35,6 +35,10 @@
   .brand .tagline{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--slate);}
   .rule-thick{border:none;border-top:2px solid var(--paper);margin:24px 0 0;}
   .auth-box{min-width:240px;}
+  .auth-tabs{display:flex;gap:4px;justify-content:flex-end;margin-bottom:6px;}
+  .auth-tab{background:none;border:none;color:var(--slate);font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;padding:4px 8px;cursor:pointer;border-bottom:2px solid transparent;}
+  .auth-tab.active{color:var(--paper);border-bottom-color:var(--gold);}
+  .auth-tab:hover{color:var(--paper);}
   .auth-box .who{display:flex;align-items:center;gap:10px;background:var(--ink-800);border:1px solid var(--ink-line);border-radius:8px;padding:8px 12px;font-size:13px;}
   .auth-box .who .seal{width:22px;height:22px;border-radius:50%;background:var(--gold-dim);color:var(--gold);display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;flex-shrink:0;}
   .auth-box .name{font-weight:500;}
@@ -128,8 +132,14 @@ let state = {
   articles: [],
   openArticleId: null,
   loginEmail: "",
+  loginPassword: "",
+  authMode: "link",
   magicLinkSent: false,
+  resetSent: false,
   nameDraft: "",
+  showPasswordSet: false,
+  passwordDraft: "",
+  passwordSaved: false,
   submitTitle: "",
   submitBody: "",
   err: "",
@@ -177,6 +187,113 @@ async function sendMagicLink(){
   render();
 }
 
+function setAuthMode(mode){
+  state.authMode = mode;
+  state.err = "";
+  state.resetSent = false;
+  render();
+}
+
+async function signInWithPassword(){
+  const email = state.loginEmail.trim().toLowerCase();
+  const password = state.loginPassword;
+  if(!email || !email.includes("@")){
+    state.err = "Enter a valid email.";
+    render();
+    return;
+  }
+  if(!password){
+    state.err = "Enter your password.";
+    render();
+    return;
+  }
+  state.err = "";
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if(error){
+    state.err = error.message;
+    render();
+  }
+  // On success, onAuthStateChange handles the redraw.
+}
+
+async function signUpWithPassword(){
+  const email = state.loginEmail.trim().toLowerCase();
+  const password = state.loginPassword;
+  if(!email || !email.includes("@")){
+    state.err = "Enter a valid email.";
+    render();
+    return;
+  }
+  if(!password || password.length < 6){
+    state.err = "Choose a password with at least 6 characters.";
+    render();
+    return;
+  }
+  state.err = "";
+  const { data, error } = await sb.auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo: window.location.origin + window.location.pathname }
+  });
+  if(error){
+    state.err = error.message;
+    render();
+    return;
+  }
+  if(data.session){
+    // Email confirmation is off; signed in immediately, onAuthStateChange handles redraw.
+    return;
+  }
+  state.err = "";
+  state.magicLinkSent = true; // reuse the "check your inbox" notice for the confirmation email
+  render();
+}
+
+async function sendPasswordReset(){
+  const email = state.loginEmail.trim().toLowerCase();
+  if(!email || !email.includes("@")){
+    state.err = "Enter your email above first.";
+    render();
+    return;
+  }
+  state.err = "";
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + window.location.pathname
+  });
+  if(error){
+    state.err = error.message;
+  } else {
+    state.resetSent = true;
+  }
+  render();
+}
+
+function toggleSetPassword(){
+  state.showPasswordSet = !state.showPasswordSet;
+  state.passwordDraft = "";
+  state.passwordSaved = false;
+  state.err = "";
+  render();
+}
+
+async function savePassword(){
+  const password = state.passwordDraft;
+  if(!password || password.length < 6){
+    state.err = "Choose a password with at least 6 characters.";
+    render();
+    return;
+  }
+  state.err = "";
+  const { error } = await sb.auth.updateUser({ password });
+  if(error){
+    state.err = error.message;
+  } else {
+    state.passwordSaved = true;
+    state.passwordDraft = "";
+  }
+  render();
+}
+
 async function saveName(){
   const name = state.nameDraft.trim();
   if(!name){
@@ -196,7 +313,18 @@ async function saveName(){
 
 async function handleSignOut(){
   await sb.auth.signOut();
+  state.session = null;
   state.view = "feed";
+  state.loginEmail = "";
+  state.loginPassword = "";
+  state.magicLinkSent = false;
+  state.resetSent = false;
+  state.showPasswordSet = false;
+  state.passwordDraft = "";
+  state.passwordSaved = false;
+  state.nameDraft = "";
+  state.err = "";
+  await loadArticles();
   render();
 }
 
@@ -285,20 +413,57 @@ function articleCard(a, opts){
 function renderAuthBox(){
   const box = document.getElementById('authBox');
   if(!state.session){
-    if(state.magicLinkSent){
-      box.innerHTML = `<div class="hint" style="text-align:right;max-width:240px;">Check your inbox for a sign-in link.</div>`;
+    const tabs = `
+      <div class="auth-tabs">
+        <button class="auth-tab ${state.authMode==='link'?'active':''}" onclick="setAuthMode('link')">Email link</button>
+        <button class="auth-tab ${state.authMode==='password'?'active':''}" onclick="setAuthMode('password')">Password</button>
+      </div>`;
+
+    if(state.authMode === 'link'){
+      if(state.magicLinkSent){
+        box.innerHTML = tabs + `<div class="hint" style="text-align:right;max-width:240px;">Check your inbox for a sign-in link.</div>`;
+        return;
+      }
+      box.innerHTML = tabs + `
+        <div class="login-form">
+          <div class="row">
+            <input type="email" id="loginEmail" placeholder="you@email.com" value="${escapeHtml(state.loginEmail)}">
+            <button class="btn btn-gold" onclick="sendMagicLink()">Email me a link</button>
+          </div>
+          ${state.err ? `<div class="hint" style="color:var(--rust)">${escapeHtml(state.err)}</div>` : `<div class="hint">No password — we email you a one-time sign-in link.</div>`}
+        </div>`;
+      document.getElementById('loginEmail').oninput = e => state.loginEmail = e.target.value;
+      document.getElementById('loginEmail').onkeydown = e => { if(e.key==='Enter') sendMagicLink(); };
       return;
     }
-    box.innerHTML = `
+
+    // password mode
+    if(state.resetSent){
+      box.innerHTML = tabs + `<div class="hint" style="text-align:right;max-width:240px;">Check your inbox for a password reset link.</div>`;
+      return;
+    }
+    if(state.magicLinkSent){
+      box.innerHTML = tabs + `<div class="hint" style="text-align:right;max-width:240px;">Check your inbox to confirm your account, then come back and sign in.</div>`;
+      return;
+    }
+    box.innerHTML = tabs + `
       <div class="login-form">
         <div class="row">
           <input type="email" id="loginEmail" placeholder="you@email.com" value="${escapeHtml(state.loginEmail)}">
-          <button class="btn btn-gold" onclick="sendMagicLink()">Email me a link</button>
         </div>
-        ${state.err ? `<div class="hint" style="color:var(--rust)">${escapeHtml(state.err)}</div>` : `<div class="hint">No password — we email you a one-time sign-in link.</div>`}
+        <div class="row">
+          <input type="password" id="loginPassword" placeholder="password" value="${escapeHtml(state.loginPassword)}">
+        </div>
+        <div class="row">
+          <button class="btn btn-ghost btn-small" onclick="signUpWithPassword()">Create account</button>
+          <button class="btn btn-gold btn-small" onclick="signInWithPassword()">Sign in</button>
+        </div>
+        <div class="hint"><a href="#" onclick="sendPasswordReset();return false;" style="color:var(--slate);">Forgot password?</a></div>
+        ${state.err ? `<div class="hint" style="color:var(--rust)">${escapeHtml(state.err)}</div>` : ''}
       </div>`;
     document.getElementById('loginEmail').oninput = e => state.loginEmail = e.target.value;
-    document.getElementById('loginEmail').onkeydown = e => { if(e.key==='Enter') sendMagicLink(); };
+    document.getElementById('loginPassword').oninput = e => state.loginPassword = e.target.value;
+    document.getElementById('loginPassword').onkeydown = e => { if(e.key==='Enter') signInWithPassword(); };
     return;
   }
   if(!displayName()){
@@ -315,15 +480,35 @@ function renderAuthBox(){
     return;
   }
   const admin = isEditor();
+  let passwordBlock = '';
+  if(state.showPasswordSet){
+    passwordBlock = `
+      <div class="login-form" style="margin-top:8px;align-items:stretch;">
+        <div class="row">
+          <input type="password" id="passwordDraft" placeholder="new password" value="${escapeHtml(state.passwordDraft)}">
+          <button class="btn btn-gold btn-small" onclick="savePassword()">Save</button>
+        </div>
+        ${state.passwordSaved ? `<div class="hint" style="color:var(--green)">Password set — you can sign in with it next time.</div>` : ''}
+        ${state.err ? `<div class="hint" style="color:var(--rust)">${escapeHtml(state.err)}</div>` : `<div class="hint">At least 6 characters.</div>`}
+      </div>`;
+  }
   box.innerHTML = `
-    <div class="who">
-      <div class="seal">${initials(displayName())}</div>
-      <div>
-        <div class="name">${escapeHtml(displayName())}</div>
-        <div class="${admin ? 'role-admin' : 'role-user'}">${admin ? 'Editor' : 'Contributor'}</div>
+    <div>
+      <div class="who">
+        <div class="seal">${initials(displayName())}</div>
+        <div>
+          <div class="name">${escapeHtml(displayName())}</div>
+          <div class="${admin ? 'role-admin' : 'role-user'}">${admin ? 'Editor' : 'Contributor'}</div>
+        </div>
+        <button class="signout" onclick="toggleSetPassword()" style="margin-left:12px;">${state.showPasswordSet ? 'Cancel' : 'Set password'}</button>
+        <button class="signout" onclick="handleSignOut()">Sign out</button>
       </div>
-      <button class="signout" onclick="handleSignOut()">Sign out</button>
+      ${passwordBlock}
     </div>`;
+  if(state.showPasswordSet){
+    document.getElementById('passwordDraft').oninput = e => state.passwordDraft = e.target.value;
+    document.getElementById('passwordDraft').onkeydown = e => { if(e.key==='Enter') savePassword(); };
+  }
 }
 
 function renderNav(){
