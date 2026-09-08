@@ -742,9 +742,15 @@ function renderSplit(main, items, opts){
   if(opts.search){
     const feedSearch = document.getElementById('feedSearch');
     if(feedSearch){
+      feedSearch.addEventListener('keydown', (event) => {
+        if(event.key === 'Enter') {
+          state.searchTerm = event.target.value;
+          render();
+        }
+      });
+
       feedSearch.addEventListener('input', (event) => {
         state.searchTerm = event.target.value;
-        render();
       });
     }
   }
