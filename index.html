@@ -84,6 +84,14 @@
   .stamp-mini.draft{color:var(--slate);background:rgba(136,144,162,0.14);}
   .detail-empty{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--slate);text-align:center;}
   .detail-article h2{font-family:'Fraunces',serif;font-weight:600;font-size:26px;line-height:1.25;margin:0 0 8px;}
+  .engage-row{display:flex;gap:10px;margin-top:24px;align-items:center;}
+  .comments-section{margin-top:34px;padding-top:22px;border-top:1px solid var(--ink-line);}
+  .comment{padding:12px 0;border-bottom:1px solid var(--ink-line);}
+  .comment-meta{font-size:12px;color:var(--slate);font-family:'IBM Plex Mono',monospace;display:flex;gap:8px;align-items:center;}
+  .comment-meta b{color:var(--paper);font-weight:500;font-family:'Inter',sans-serif;}
+  .comment-body{margin-top:6px;font-size:14px;color:#d6d8de;line-height:1.55;white-space:pre-wrap;}
+  .comment-form{margin-top:16px;display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
+  .comment-form textarea{min-height:70px;}
   .back-link{display:none;color:var(--gold);text-decoration:none;font-size:12px;font-family:'IBM Plex Mono',monospace;letter-spacing:0.04em;text-transform:uppercase;cursor:pointer;margin-bottom:18px;}
   .article{padding:26px 0;border-bottom:1px solid var(--ink-line);}
   .article:first-child{padding-top:0;}
@@ -159,6 +167,11 @@ let state = {
   view: "feed",
   articles: [],
   selectedId: null,
+  likeCount: 0,
+  userLiked: false,
+  comments: [],
+  commentDraft: "",
+  shareCopied: null,
   loginEmail: "",
   loginPassword: "",
   authMode: "link",
@@ -358,6 +371,10 @@ async function handleSignOut(){
   state.editingArticleId = null;
   state.draftSaved = false;
   state.selectedId = null;
+  state.likeCount = 0;
+  state.userLiked = false;
+  state.comments = [];
+  state.commentDraft = "";
   state.err = "";
   await loadArticles();
   render();
@@ -531,12 +548,126 @@ function stampMini(status){
 
 function selectArticle(id){
   state.selectedId = id;
+  state.likeCount = 0;
+  state.userLiked = false;
+  state.comments = [];
+  state.commentDraft = "";
+  state.err = "";
   render();
+  if(state.view === 'feed'){
+    if(window.location.hash !== '#article-' + id) window.location.hash = 'article-' + id;
+    loadArticleExtras(id);
+  }
 }
 
 function clearSelection(){
   state.selectedId = null;
+  state.err = "";
+  if(state.view === 'feed' && window.location.hash){
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+  }
   render();
+}
+
+function openArticleFromHash(){
+  const m = window.location.hash.match(/^#article-(.+)$/);
+  if(!m) return;
+  const id = m[1];
+  if(state.selectedId === id && state.view === 'feed') return;
+  state.view = 'feed';
+  state.selectedId = id;
+  state.likeCount = 0;
+  state.userLiked = false;
+  state.comments = [];
+  state.commentDraft = "";
+  render();
+  loadArticleExtras(id);
+}
+
+async function loadArticleExtras(articleId){
+  const [likesRes, commentsRes] = await Promise.all([
+    sb.from('article_likes').select('user_email').eq('article_id', articleId),
+    sb.from('article_comments').select('*').eq('article_id', articleId).order('created_at', { ascending: true })
+  ]);
+  const likeRows = likesRes.data || [];
+  state.likeCount = likeRows.length;
+  state.userLiked = state.session ? likeRows.some(r => r.user_email === state.session.user.email) : false;
+  state.comments = commentsRes.data || [];
+  render();
+}
+
+async function toggleLike(articleId){
+  if(!state.session){
+    state.err = "Sign in above to like this article.";
+    render();
+    return;
+  }
+  const email = state.session.user.email;
+  if(state.userLiked){
+    state.userLiked = false;
+    state.likeCount = Math.max(0, state.likeCount - 1);
+    render();
+    await sb.from('article_likes').delete().eq('article_id', articleId).eq('user_email', email);
+  } else {
+    state.userLiked = true;
+    state.likeCount += 1;
+    render();
+    await sb.from('article_likes').insert({ article_id: articleId, user_email: email });
+  }
+  await loadArticleExtras(articleId);
+}
+
+async function shareArticle(id){
+  const url = window.location.origin + window.location.pathname + '#article-' + id;
+  const a = state.articles.find(x => x.id === id);
+  if(navigator.share){
+    try { await navigator.share({ title: a ? a.title : 'Article', url }); }
+    catch(e) { /* user cancelled — ignore */ }
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    state.shareCopied = id;
+    render();
+    setTimeout(() => { if(state.shareCopied === id){ state.shareCopied = null; render(); } }, 2000);
+  } catch(e) {
+    state.err = "Couldn't copy the link — copy it from the address bar instead.";
+    render();
+  }
+}
+
+async function postComment(articleId){
+  if(!state.session){
+    state.err = "Sign in above to comment.";
+    render();
+    return;
+  }
+  const body = (state.commentDraft || "").trim();
+  if(!body){
+    state.err = "Write something before posting.";
+    render();
+    return;
+  }
+  state.err = "";
+  const { error } = await sb.from('article_comments').insert({
+    article_id: articleId,
+    author_email: state.session.user.email,
+    author_name: displayName(),
+    body
+  });
+  if(error){
+    state.err = error.message;
+    render();
+    return;
+  }
+  state.commentDraft = "";
+  await loadArticleExtras(articleId);
+}
+
+async function deleteComment(commentId, articleId){
+  const { error } = await sb.from('article_comments').delete().eq('id', commentId);
+  if(error){ state.err = error.message; }
+  await loadArticleExtras(articleId);
 }
 
 function listRowHtml(a, active, statusTag){
@@ -565,11 +696,36 @@ function renderSplit(main, items, opts){
 }
 
 function feedDetailHtml(a){
+  const canInteract = !!state.session;
+  const likeBtnClass = state.userLiked ? 'btn-gold' : 'btn-ghost';
+  const shareLabel = state.shareCopied === a.id ? 'Link copied!' : 'Share';
   return `
     <article class="detail-article">
       <h2>${escapeHtml(a.title)}</h2>
       <div class="byline"><b>${escapeHtml(a.author_name || a.author_email)}</b> · ${fmtDate(a.created_at)}</div>
       <div class="body-text" style="margin-top:18px;">${escapeHtml(a.body)}</div>
+
+      <div class="engage-row">
+        <button class="btn btn-small ${likeBtnClass}" onclick="toggleLike('${a.id}')">${state.userLiked ? '♥' : '♡'} ${state.likeCount}</button>
+        <button class="btn btn-ghost btn-small" onclick="shareArticle('${a.id}')">${shareLabel}</button>
+      </div>
+      ${state.err ? `<div class="hint" style="color:var(--rust);text-align:left;margin-top:8px;">${escapeHtml(state.err)}</div>` : ''}
+
+      <div class="comments-section">
+        <div class="field-note" style="margin-bottom:12px;">Comments${state.comments.length ? ' · ' + state.comments.length : ''}</div>
+        ${state.comments.length === 0 ? `<div class="hint" style="text-align:left;">No comments yet.</div>` : state.comments.map(c => `
+          <div class="comment">
+            <div class="comment-meta"><b>${escapeHtml(c.author_name || c.author_email)}</b> · ${fmtDate(c.created_at)}
+              ${(state.session && (c.author_email === state.session.user.email || isEditor())) ? `<a href="#" class="toggle-link" onclick="deleteComment('${c.id}','${a.id}');return false;">Delete</a>` : ''}
+            </div>
+            <div class="comment-body">${escapeHtml(c.body)}</div>
+          </div>`).join('')}
+        ${canInteract ? `
+          <div class="comment-form">
+            <textarea id="commentDraft" placeholder="Add a comment...">${escapeHtml(state.commentDraft || '')}</textarea>
+            <button class="btn btn-gold btn-small" onclick="postComment('${a.id}')">Post comment</button>
+          </div>` : `<div class="hint" style="text-align:left;margin-top:10px;">Sign in above to like or comment.</div>`}
+      </div>
     </article>`;
 }
 
@@ -615,7 +771,7 @@ function reviewDetailHtml(a){
         <h2 style="margin:0;">${escapeHtml(a.title)}</h2>
         ${stampHtml(a.status)}
       </div>
-      <div class="byline"><b>${escapeHtml(a.author_name || a.author_email)}</b> · ${a.author_email} · ${fmtDate(a.created_at)}</div>
+      <div class="byline"><b>${escapeHtml(a.author_name || a.author_email)}</b> · ${fmtDate(a.created_at)}</div>
       <div class="body-text" style="margin-top:18px;">${escapeHtml(a.body)}</div>
       ${actions}
     </article>`;
@@ -775,6 +931,8 @@ function renderMain(){
       rowHtml: (a, active) => listRowHtml(a, active),
       detailHtml: feedDetailHtml
     });
+    const cd = document.getElementById('commentDraft');
+    if(cd) cd.oninput = e => state.commentDraft = e.target.value;
     return;
   }
 
@@ -860,7 +1018,10 @@ async function init(){
   const { data: { session } } = await sb.auth.getSession();
   state.session = session;
   await loadArticles();
+  openArticleFromHash();
   render();
+
+  window.addEventListener('hashchange', openArticleFromHash);
 
   sb.auth.onAuthStateChange(async (_event, session) => {
     state.session = session;
