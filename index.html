@@ -95,6 +95,10 @@
   .clear-search:disabled{opacity:0.4;cursor:not-allowed;}
   .detail-article h2{font-family:'Fraunces',serif;font-weight:600;font-size:26px;line-height:1.25;margin:0 0 8px;}
   .engage-row{display:flex;gap:10px;margin-top:24px;align-items:center;}
+  .reaction-bar{display:flex;gap:12px;margin:16px 0;}
+  .reaction-btn{background:transparent;border:none;font-size:18px;cursor:pointer;display:flex;align-items:center;gap:4px;opacity:0.8;transition:transform 0.15s ease,opacity 0.15s ease;}
+  .reaction-btn:hover{opacity:1;transform:scale(1.1);}
+  .reaction-btn.active{color:#d9534f;transform:scale(1.2);opacity:1;}
   .comments-section{margin-top:34px;padding-top:22px;border-top:1px solid var(--ink-line);}
   .comment{padding:12px 0;border-bottom:1px solid var(--ink-line);}
   .comment-meta{font-size:12px;color:var(--slate);font-family:'IBM Plex Mono',monospace;display:flex;gap:8px;align-items:center;}
@@ -639,6 +643,85 @@ async function loadArticleExtras(articleId){
   state.userLiked = state.session ? likeRows.some(r => r.user_email === state.session.user.email) : false;
   state.comments = commentsRes.data || [];
   render();
+  loadReactionCounts(articleId);
+  const { data: { user } } = await sb.auth.getUser();
+  setupReactionHandlers(articleId, user);
+  loadUserReaction(articleId, user);
+}
+
+async function loadReactionCounts(articleId){
+  const { data, error } = await sb
+    .from('reactions')
+    .select('reaction_type, count(*)', { count: 'exact' })
+    .eq('article_id', articleId)
+    .group('reaction_type');
+
+  if(error){
+    console.error('Error loading reactions:', error);
+    return;
+  }
+
+  document.querySelectorAll('#reaction-bar .reaction-btn span')
+    .forEach(span => span.textContent = '0');
+
+  (data || []).forEach(row => {
+    const btn = document.querySelector(
+      `.reaction-btn[data-type="${row.reaction_type}"] span`
+    );
+    if(btn) btn.textContent = row.count;
+  });
+}
+
+async function setupReactionHandlers(articleId, user){
+  if(!user) return;
+
+  const buttons = document.querySelectorAll('#reaction-bar .reaction-btn');
+  buttons.forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const reactionType = btn.dataset.type;
+      const { error } = await sb
+        .from('reactions')
+        .upsert({
+          article_id: articleId,
+          user_id: user.id,
+          reaction_type: reactionType
+        });
+
+      if(error){
+        console.error('Error saving reaction:', error);
+        return;
+      }
+
+      loadReactionCounts(articleId);
+      highlightUserReaction(reactionType);
+    });
+  });
+}
+
+async function loadUserReaction(articleId, user){
+  if(!user){
+    highlightUserReaction(null);
+    return;
+  }
+
+  const { data, error } = await sb
+    .from('reactions')
+    .select('reaction_type')
+    .eq('article_id', articleId)
+    .eq('user_id', user.id)
+    .single();
+
+  if(error){
+    highlightUserReaction(null);
+    return;
+  }
+
+  highlightUserReaction(data.reaction_type);
+}
+
+function highlightUserReaction(reactionType){
+  document.querySelectorAll('#reaction-bar .reaction-btn')
+    .forEach(btn => btn.classList.toggle('active', btn.dataset.type === reactionType));
 }
 
 async function toggleLike(articleId){
@@ -845,7 +928,6 @@ function renderSplit(main, items, opts){
 
 function feedDetailHtml(a){
   const canInteract = !!state.session;
-  const likeBtnClass = state.userLiked ? 'btn-gold' : 'btn-ghost';
   const shareLabel = state.shareCopied === a.id ? 'Link copied!' : 'Share';
   return `
     <article class="detail-article">
@@ -853,8 +935,12 @@ function feedDetailHtml(a){
       <div class="byline"><b>${escapeHtml(a.author_name || a.author_email)}</b> · ${fmtDate(a.created_at)}</div>
       <div class="body-text" style="margin-top:18px;">${escapeHtml(a.body)}</div>
 
-      <div class="engage-row">
-        <button class="btn btn-small ${likeBtnClass}" onclick="toggleLike('${a.id}')">${state.userLiked ? '♥' : '♡'} ${state.likeCount}</button>
+      <div id="reaction-bar" class="reaction-bar">
+        <button class="reaction-btn" data-type="amen">👍 <span>0</span></button>
+        <button class="reaction-btn ${state.userLiked ? 'active' : ''}" data-type="like">❤️ <span>${state.likeCount}</span></button>
+        <button class="reaction-btn" data-type="praise">🙌 <span>0</span></button>
+        <button class="reaction-btn" data-type="insight">💡 <span>0</span></button>
+        <button class="reaction-btn" data-type="bookmark">⭐ <span>0</span></button>
         <button class="btn btn-ghost btn-small" onclick="shareArticle('${a.id}')">${shareLabel}</button>
       </div>
       ${state.err ? `<div class="hint" style="color:var(--rust);text-align:left;margin-top:8px;">${escapeHtml(state.err)}</div>` : ''}
