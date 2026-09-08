@@ -546,6 +546,25 @@ function stampMini(status){
   return `<span class="stamp-mini ${status}">${label}</span>`;
 }
 
+function slugify(str){
+  return (str || '')
+    .toString()
+    .normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+}
+
+function shortCode(id){
+  return (id || '').replace(/-/g, '').slice(0, 8);
+}
+
+function articleSlug(a){
+  const parts = [slugify(a.author_name || a.author_email), slugify(a.title)].filter(Boolean);
+  return parts.join('-') + (parts.length ? '-' : '') + shortCode(a.id);
+}
+
 function selectArticle(id){
   state.selectedId = id;
   state.likeCount = 0;
@@ -555,7 +574,9 @@ function selectArticle(id){
   state.err = "";
   render();
   if(state.view === 'feed'){
-    if(window.location.hash !== '#article-' + id) window.location.hash = 'article-' + id;
+    const a = state.articles.find(x => x.id === id);
+    const slug = a ? articleSlug(a) : id;
+    if(window.location.hash !== '#article-' + slug) window.location.hash = 'article-' + slug;
     loadArticleExtras(id);
   }
 }
@@ -572,16 +593,19 @@ function clearSelection(){
 function openArticleFromHash(){
   const m = window.location.hash.match(/^#article-(.+)$/);
   if(!m) return;
-  const id = m[1];
-  if(state.selectedId === id && state.view === 'feed') return;
+  const raw = m[1];
+  const code = raw.split('-').pop();
+  const a = state.articles.find(x => shortCode(x.id) === code) || state.articles.find(x => x.id === raw);
+  if(!a) return;
+  if(state.selectedId === a.id && state.view === 'feed') return;
   state.view = 'feed';
-  state.selectedId = id;
+  state.selectedId = a.id;
   state.likeCount = 0;
   state.userLiked = false;
   state.comments = [];
   state.commentDraft = "";
   render();
-  loadArticleExtras(id);
+  loadArticleExtras(a.id);
 }
 
 async function loadArticleExtras(articleId){
@@ -618,8 +642,9 @@ async function toggleLike(articleId){
 }
 
 async function shareArticle(id){
-  const url = window.location.origin + window.location.pathname + '#article-' + id;
   const a = state.articles.find(x => x.id === id);
+  const slug = a ? articleSlug(a) : id;
+  const url = window.location.origin + window.location.pathname + '#article-' + slug;
   if(navigator.share){
     try { await navigator.share({ title: a ? a.title : 'Article', url }); }
     catch(e) { /* user cancelled — ignore */ }
@@ -687,7 +712,15 @@ function renderSplit(main, items, opts){
   const listHtml = items.map(a => opts.rowHtml(a, a.id === state.selectedId)).join('');
   const detailHtml = selected
     ? `<a class="back-link" onclick="clearSelection();return false;" href="#">← Back to list</a>${opts.detailHtml(selected)}`
-    : `<div class="detail-empty"><div class="glyph">†</div><p>Select an article on the left to read it here.</p></div>`;
+    : `<div class="detail-empty"><div class="glyph">†</div><div style="max-width:560px;line-height:1.7;color:var(--slate);text-align:left;">
+        <p style="margin:0 0 10px;color:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;">The Flint<br>Welcome message</p>
+        <p style="margin:0 0 14px;">The Flint is an apostolic oneness articles‑of‑faith publishing site dedicated to proclaiming the revelation of the One God. This platform exists to strengthen believers, equip ministers, and preserve the doctrine handed down by the apostles. Every article published here aims to uphold biblical truth with clarity, conviction, and reverence.</p>
+        <p style="margin:0 0 14px;">At the heart of our faith is the declaration that Jesus Christ is the one God manifest in the flesh. He is the fullness of the Godhead bodily, the visible image of the invisible God, the Father revealed to humanity through the Son. This site stands firmly upon that foundation and invites all who share this conviction to contribute to the growing library of teaching, study, and proclamation.</p>
+        <p style="margin:0 0 14px;">Oneness believers may create an account to submit their articles. All submissions are reviewed and approved by the editor before publication. Only articles that uphold apostolic doctrine and sound biblical teaching will be published.</p>
+        <p style="margin:0 0 14px;">The Flint is also a community. Readers can react to articles, leave comments, and share teachings across social media platforms. Every article becomes a conversation — a place where believers can encourage one another, ask questions, and grow deeper in the truth of the One God.</p>
+        <p style="margin:0 0 14px;">As you explore the articles on the left, may every page deepen your understanding of Jesus Christ, our Lord and Savior, and strengthen your walk in the apostolic faith.</p>
+        <p style="margin:0;">Select an article on the left to begin reading.</p>
+      </div></div>`;
   main.innerHTML = `
     <div class="split ${state.selectedId ? 'has-selection' : ''}">
       <div class="split-list">${listHtml}</div>
