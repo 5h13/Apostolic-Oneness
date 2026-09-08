@@ -864,10 +864,10 @@ function feedDetailHtml(a){
         ${state.comments.length === 0 ? `<div class="hint" style="text-align:left;">No comments yet.</div>` : state.comments.map(c => `
           <div class="comment">
             <div class="comment-meta"><b>${escapeHtml(c.author_name || c.author_email)}</b> · ${fmtDate(c.created_at)}
-              ${(state.session && (c.author_email === state.session.user.email || isEditor())) ? `<a href="#" class="toggle-link" onclick="deleteComment('${c.id}','${a.id}');return false;">Delete</a>` : ''}
+              ${(state.session && (c.author_email === state.session.user.email || isEditor())) ? `<a href="javascript:void(0)" class="toggle-link" onclick="deleteComment('${c.id}','${a.id}');return false;">Delete</a>` : ''}
             </div>
             <div class="comment-body">${escapeHtml(c.body)}</div>
-            ${canInteract ? `<div class="comment-actions"><a href="#" class="toggle-link" onclick="startReply('${c.id}');return false;">Reply</a></div>` : ''}
+            ${canInteract ? `<div class="comment-actions"><a href="javascript:void(0)" class="toggle-link" onclick="startReply('${c.id}');return false;">Reply</a></div>` : ''}
             ${state.replyTargetId === c.id ? `
               <div class="comment-reply">
                 <textarea id="replyInput-${c.id}" placeholder="Reply to ${escapeHtml(c.author_name || c.author_email)}..." style="margin-top:6px;">${escapeHtml(state.replyDrafts[c.id] || '@' + (c.author_name || c.author_email) + ' ')}</textarea>
