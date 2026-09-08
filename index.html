@@ -100,6 +100,10 @@
   .comment-meta{font-size:12px;color:var(--slate);font-family:'IBM Plex Mono',monospace;display:flex;gap:8px;align-items:center;}
   .comment-meta b{color:var(--paper);font-weight:500;font-family:'Inter',sans-serif;}
   .comment-body{margin-top:6px;font-size:14px;color:#d6d8de;line-height:1.55;white-space:pre-wrap;}
+  .comment-actions{margin-top:8px;display:flex;gap:10px;align-items:center;}
+  .comment-reply{margin-top:10px;display:flex;flex-direction:column;gap:8px;}
+  .comment-reply textarea{min-height:70px;}
+  .reply-actions{display:flex;justify-content:flex-end;gap:8px;}
   .comment-form{margin-top:16px;display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
   .comment-form textarea{min-height:70px;}
   .back-link{display:none;color:var(--gold);text-decoration:none;font-size:12px;font-family:'IBM Plex Mono',monospace;letter-spacing:0.04em;text-transform:uppercase;cursor:pointer;margin-bottom:18px;}
@@ -197,7 +201,9 @@ let state = {
   draftSaved: false,
   err: "",
   loading: true,
-  searchTerm: ""
+  searchTerm: "",
+  replyTargetId: null,
+  replyDrafts: {}
 };
 
 function isEditor(){
@@ -706,6 +712,62 @@ async function deleteComment(commentId, articleId){
   await loadArticleExtras(articleId);
 }
 
+function startReply(comment){
+  const name = comment.author_name || comment.author_email || 'user';
+  state.replyTargetId = comment.id;
+  state.replyDrafts[comment.id] = state.replyDrafts[comment.id] || '@' + name + ' ';
+  state.err = "";
+  render();
+  const input = document.getElementById('replyInput-' + comment.id);
+  if(input){
+    input.focus();
+    const end = input.value.length;
+    input.setSelectionRange(end, end);
+  }
+}
+
+function cancelReply(){
+  state.replyTargetId = null;
+  render();
+}
+
+async function postReply(articleId, commentId){
+  if(!state.session){
+    state.err = "Sign in above to reply.";
+    render();
+    return;
+  }
+  const parent = state.comments.find(c => c.id === commentId);
+  if(!parent){
+    state.err = "That comment is no longer available.";
+    render();
+    return;
+  }
+  const raw = (state.replyDrafts[commentId] || "").trim();
+  if(!raw){
+    state.err = "Write a reply before posting.";
+    render();
+    return;
+  }
+  const mention = '@' + (parent.author_name || parent.author_email || 'user');
+  const body = raw.startsWith(mention) ? raw : mention + ' ' + raw;
+  state.err = "";
+  const { error } = await sb.from('article_comments').insert({
+    article_id: articleId,
+    author_email: state.session.user.email,
+    author_name: displayName(),
+    body
+  });
+  if(error){
+    state.err = error.message;
+    render();
+    return;
+  }
+  state.replyDrafts[commentId] = "";
+  state.replyTargetId = null;
+  await loadArticleExtras(articleId);
+}
+
 function listRowHtml(a, active, statusTag){
   return `
     <div class="list-row ${active ? 'active' : ''}" onclick="selectArticle('${a.id}')">
@@ -796,6 +858,15 @@ function feedDetailHtml(a){
               ${(state.session && (c.author_email === state.session.user.email || isEditor())) ? `<a href="#" class="toggle-link" onclick="deleteComment('${c.id}','${a.id}');return false;">Delete</a>` : ''}
             </div>
             <div class="comment-body">${escapeHtml(c.body)}</div>
+            ${canInteract ? `<div class="comment-actions"><a href="#" class="toggle-link" onclick="startReply(${JSON.stringify(c)});return false;">Reply</a></div>` : ''}
+            ${state.replyTargetId === c.id ? `
+              <div class="comment-reply">
+                <textarea id="replyInput-${c.id}" placeholder="Reply to ${escapeHtml(c.author_name || c.author_email)}...">${escapeHtml(state.replyDrafts[c.id] || '@' + (c.author_name || c.author_email) + ' ')}</textarea>
+                <div class="reply-actions">
+                  <button class="btn btn-ghost btn-small" onclick="cancelReply()">Cancel</button>
+                  <button class="btn btn-gold btn-small" onclick="postReply('${a.id}','${c.id}')">Post reply</button>
+                </div>
+              </div>` : ''}
           </div>`).join('')}
         ${canInteract ? `
           <div class="comment-form">
@@ -1029,6 +1100,13 @@ function renderMain(){
     });
     const cd = document.getElementById('commentDraft');
     if(cd) cd.oninput = e => state.commentDraft = e.target.value;
+
+    document.querySelectorAll('[id^="replyInput-"]').forEach((replyInput) => {
+      const id = replyInput.id.replace('replyInput-', '');
+      replyInput.oninput = e => {
+        state.replyDrafts[id] = e.target.value;
+      };
+    });
     return;
   }
 
