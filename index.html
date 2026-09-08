@@ -82,7 +82,10 @@
   .stamp-mini.pending{color:var(--amber);background:var(--amber-dim);}
   .stamp-mini.rejected{color:var(--rust);background:var(--rust-dim);}
   .stamp-mini.draft{color:var(--slate);background:rgba(136,144,162,0.14);}
-  .detail-empty{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--slate);text-align:center;}
+  .detail-empty{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:18px;color:var(--slate);text-align:center;overflow-y:auto;}
+  .welcome-message{max-width:560px;line-height:1.7;color:var(--slate);text-align:left;}
+  .welcome-heading{margin:0 0 10px;color:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;}
+  .welcome-copy{margin:0 0 14px;}
   .detail-article h2{font-family:'Fraunces',serif;font-weight:600;font-size:26px;line-height:1.25;margin:0 0 8px;}
   .engage-row{display:flex;gap:10px;margin-top:24px;align-items:center;}
   .comments-section{margin-top:34px;padding-top:22px;border-top:1px solid var(--ink-line);}
@@ -712,14 +715,14 @@ function renderSplit(main, items, opts){
   const listHtml = items.map(a => opts.rowHtml(a, a.id === state.selectedId)).join('');
   const detailHtml = selected
     ? `<a class="back-link" onclick="clearSelection();return false;" href="#">← Back to list</a>${opts.detailHtml(selected)}`
-    : `<div class="detail-empty"><div class="glyph">†</div><div style="max-width:560px;line-height:1.7;color:var(--slate);text-align:left;">
-        <p style="margin:0 0 10px;color:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;">The Flint<br>Welcome message</p>
-        <p style="margin:0 0 14px;">The Flint is an apostolic oneness articles‑of‑faith publishing site dedicated to proclaiming the revelation of the One God. This platform exists to strengthen believers, equip ministers, and preserve the doctrine handed down by the apostles. Every article published here aims to uphold biblical truth with clarity, conviction, and reverence.</p>
-        <p style="margin:0 0 14px;">At the heart of our faith is the declaration that Jesus Christ is the one God manifest in the flesh. He is the fullness of the Godhead bodily, the visible image of the invisible God, the Father revealed to humanity through the Son. This site stands firmly upon that foundation and invites all who share this conviction to contribute to the growing library of teaching, study, and proclamation.</p>
-        <p style="margin:0 0 14px;">Oneness believers may create an account to submit their articles. All submissions are reviewed and approved by the editor before publication. Only articles that uphold apostolic doctrine and sound biblical teaching will be published.</p>
-        <p style="margin:0 0 14px;">The Flint is also a community. Readers can react to articles, leave comments, and share teachings across social media platforms. Every article becomes a conversation — a place where believers can encourage one another, ask questions, and grow deeper in the truth of the One God.</p>
-        <p style="margin:0 0 14px;">As you explore the articles on the left, may every page deepen your understanding of Jesus Christ, our Lord and Savior, and strengthen your walk in the apostolic faith.</p>
-        <p style="margin:0;">Select an article on the left to begin reading.</p>
+    : `<div class="detail-empty"><div class="glyph">†</div><div class="welcome-message">
+        <p class="welcome-heading">The Flint<br>Welcome message</p>
+        <p class="welcome-copy">The Flint is an apostolic oneness articles‑of‑faith publishing site dedicated to proclaiming the revelation of the One God. This platform exists to strengthen believers, equip ministers, and preserve the doctrine handed down by the apostles. Every article published here aims to uphold biblical truth with clarity, conviction, and reverence.</p>
+        <p class="welcome-copy">At the heart of our faith is the declaration that Jesus Christ is the one God manifest in the flesh. He is the fullness of the Godhead bodily, the visible image of the invisible God, the Father revealed to humanity through the Son. This site stands firmly upon that foundation and invites all who share this conviction to contribute to the growing library of teaching, study, and proclamation.</p>
+        <p class="welcome-copy">Oneness believers may create an account to submit their articles. All submissions are reviewed and approved by the editor before publication. Only articles that uphold apostolic doctrine and sound biblical teaching will be published.</p>
+        <p class="welcome-copy">The Flint is also a community. Readers can react to articles, leave comments, and share teachings across social media platforms. Every article becomes a conversation — a place where believers can encourage one another, ask questions, and grow deeper in the truth of the One God.</p>
+        <p class="welcome-copy">As you explore the articles on the left, may every page deepen your understanding of Jesus Christ, our Lord and Savior, and strengthen your walk in the apostolic faith.</p>
+        <p class="welcome-copy" style="margin-bottom:0;">Select an article on the left to begin reading.</p>
       </div></div>`;
   main.innerHTML = `
     <div class="split ${state.selectedId ? 'has-selection' : ''}">
