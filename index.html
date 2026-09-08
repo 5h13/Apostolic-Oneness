@@ -86,9 +86,13 @@
   .welcome-message{max-width:560px;line-height:1.7;color:var(--slate);text-align:left;}
   .welcome-heading{margin:0 0 10px;color:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;}
   .welcome-copy{margin:0 0 14px;}
-  .feed-tools{padding:14px 16px;border-bottom:1px solid var(--ink-line);background:var(--ink-900);}
+  .feed-tools{padding:14px 16px;border-bottom:1px solid var(--ink-line);background:var(--ink-900);display:flex;align-items:center;gap:8px;}
+  .feed-search-wrap{flex:1 1 auto;}
   .feed-search{width:100%;background:var(--ink-800);border:1px solid var(--ink-line);border-radius:8px;padding:10px 12px;color:var(--paper);font-size:13px;font-family:'Inter',sans-serif;outline:none;}
   .feed-search:focus{border-color:var(--gold);}
+  .clear-search{background:none;border:1px solid var(--ink-line);color:var(--slate);border-radius:6px;padding:8px 10px;font-size:12px;font-family:'Inter',sans-serif;cursor:pointer;}
+  .clear-search:hover:not(:disabled){border-color:var(--gold);color:var(--paper);}
+  .clear-search:disabled{opacity:0.4;cursor:not-allowed;}
   .detail-article h2{font-family:'Fraunces',serif;font-weight:600;font-size:26px;line-height:1.25;margin:0 0 8px;}
   .engage-row{display:flex;gap:10px;margin-top:24px;align-items:center;}
   .comments-section{margin-top:34px;padding-top:22px;border-top:1px solid var(--ink-line);}
@@ -730,7 +734,10 @@ function renderSplit(main, items, opts){
 
   const searchHtml = opts.search ? `
     <div class="feed-tools">
-      <input type="search" id="feedSearch" class="feed-search" value="${escapeHtml(state.searchTerm)}" placeholder="Search published articles...">
+      <div class="feed-search-wrap">
+        <input type="search" id="feedSearch" class="feed-search" value="${escapeHtml(state.searchTerm)}" placeholder="Search published articles...">
+      </div>
+      <button type="button" id="clearFeedSearch" class="clear-search" ${state.searchTerm ? '' : 'disabled'}>Clear</button>
     </div>` : '';
 
   main.innerHTML = `
@@ -741,6 +748,8 @@ function renderSplit(main, items, opts){
 
   if(opts.search){
     const feedSearch = document.getElementById('feedSearch');
+    const clearFeedSearch = document.getElementById('clearFeedSearch');
+
     if(feedSearch){
       feedSearch.addEventListener('keydown', (event) => {
         if(event.key === 'Enter') {
@@ -751,6 +760,13 @@ function renderSplit(main, items, opts){
 
       feedSearch.addEventListener('input', (event) => {
         state.searchTerm = event.target.value;
+      });
+    }
+
+    if(clearFeedSearch){
+      clearFeedSearch.addEventListener('click', () => {
+        state.searchTerm = '';
+        render();
       });
     }
   }
@@ -939,16 +955,32 @@ function renderAuthBox(){
   }
 }
 
+function getFilteredPublishedArticles(){
+  const approved = state.articles.filter(a => a.status === 'approved');
+  const q = state.searchTerm.trim().toLowerCase();
+  if(!q) return approved;
+  return approved.filter(a => {
+    const haystack = [
+      a.title,
+      a.author_name,
+      a.author_email,
+      a.body
+    ].join(' ').toLowerCase();
+    return haystack.includes(q);
+  });
+}
+
 function renderNav(){
   const nav = document.getElementById('nav');
+  const feedCount = getFilteredPublishedArticles().length;
   if(!state.session || !displayName()){
-    nav.innerHTML = `<button class="active">Feed</button>`;
+    nav.innerHTML = `<button class="active">Feed (${feedCount})</button>`;
     return;
   }
   const admin = isEditor();
   const pendingCount = state.articles.filter(a => a.status === 'pending').length;
   const tabs = [
-    {id:'feed', label:'Feed'},
+    {id:'feed', label:`Feed (${feedCount})`},
     {id:'submit', label:'Submit'},
     {id:'desk', label:'My desk'}
   ];
@@ -985,17 +1017,8 @@ function renderMain(){
   const main = document.getElementById('main');
 
   if(state.view === 'feed'){
-    const approved = state.articles.filter(a => a.status === 'approved');
     const q = state.searchTerm.trim().toLowerCase();
-    const filtered = !q ? approved : approved.filter(a => {
-      const haystack = [
-        a.title,
-        a.author_name,
-        a.author_email,
-        a.body
-      ].join(' ').toLowerCase();
-      return haystack.includes(q);
-    });
+    const filtered = getFilteredPublishedArticles();
 
     renderSplit(main, filtered, {
       emptyTitle: q ? "No published articles match your search." : "No articles published yet.",
