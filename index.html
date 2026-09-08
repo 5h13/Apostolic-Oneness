@@ -633,6 +633,12 @@ function renderNav(){
 }
 
 function setView(v){
+  if(v === 'submit'){
+    state.editingArticleId = null;
+    state.submitTitle = "";
+    state.submitBody = "";
+    state.draftSaved = false;
+  }
   state.view = v;
   state.err = "";
   render();
