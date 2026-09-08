@@ -679,6 +679,7 @@ async function setupReactionHandlers(articleId, user){
   buttons.forEach(btn => {
     btn.addEventListener('click', async () => {
       const reactionType = btn.dataset.type;
+      highlightUserReaction(reactionType);
       const { error } = await sb
         .from('reactions')
         .upsert({
@@ -693,7 +694,6 @@ async function setupReactionHandlers(articleId, user){
       }
 
       loadReactionCounts(articleId);
-      highlightUserReaction(reactionType);
     });
   });
 }
@@ -1297,6 +1297,9 @@ async function init(){
     state.magicLinkSent = false;
     await loadArticles();
     render();
+    if(state.view === 'feed' && state.selectedId){
+      await loadArticleExtras(state.selectedId);
+    }
   });
 
   sb.channel('articles-changes')
