@@ -457,6 +457,30 @@ async function submitArticle(){
   render();
 }
 
+async function saveArticleEdit(){
+  const title = state.submitTitle.trim();
+  const body = state.submitBody.trim();
+  if(!title || !body){
+    state.err = "Both a title and article text are required.";
+    render();
+    return;
+  }
+  state.err = "";
+  const { error } = await sb.from('articles').update({ title, body }).eq('id', state.editingArticleId);
+  if(error){
+    state.err = error.message;
+    render();
+    return;
+  }
+  state.submitTitle = "";
+  state.submitBody = "";
+  state.editingArticleId = null;
+  state.draftSaved = false;
+  state.view = "review";
+  await loadArticles();
+  render();
+}
+
 async function setStatus(id, status){
   const patch = { status };
   if(status === 'approved') patch.approved_at = new Date().toISOString();
@@ -683,9 +707,15 @@ function renderMain(){
   }
 
   if(state.view === 'submit'){
+    const editingArticle = state.editingArticleId ? state.articles.find(x => x.id === state.editingArticleId) : null;
+    const editingLive = editingArticle && editingArticle.status !== 'draft';
     main.innerHTML = `
       <div class="panel">
-        ${state.editingArticleId ? `<div class="field-note" style="margin-bottom:14px;">Editing a saved draft. <a href="#" onclick="newSubmission();return false;" style="color:var(--gold);">Start a new article instead</a></div>` : ''}
+        ${state.editingArticleId
+          ? (editingLive
+              ? `<div class="field-note" style="margin-bottom:14px;">Editing a ${editingArticle.status} article — changes save in place, status stays the same. <a href="#" onclick="newSubmission();return false;" style="color:var(--gold);">Start a new article instead</a></div>`
+              : `<div class="field-note" style="margin-bottom:14px;">Editing a saved draft. <a href="#" onclick="newSubmission();return false;" style="color:var(--gold);">Start a new article instead</a></div>`)
+          : ''}
         <div class="field">
           <label>Headline</label>
           <input type="text" id="submitTitle" placeholder="A working title" value="${escapeHtml(state.submitTitle)}">
@@ -695,10 +725,10 @@ function renderMain(){
           <textarea id="submitBody" placeholder="Write the piece here.">${escapeHtml(state.submitBody)}</textarea>
         </div>
         <div class="submit-row">
-          <div class="field-note">${isEditor() ? "Publishes immediately — you're the editor." : "Goes to the editor for approval before it's published."}</div>
+          <div class="field-note">${editingLive ? "Saves in place — no re-approval needed." : (isEditor() ? "Publishes immediately — you're the editor." : "Goes to the editor for approval before it's published.")}</div>
           <div style="display:flex;gap:8px;">
-            <button class="btn btn-ghost" onclick="saveDraft()">Save draft</button>
-            <button class="btn btn-gold" onclick="submitArticle()">${isEditor() ? 'Publish' : 'Send for approval'}</button>
+            ${!editingLive ? `<button class="btn btn-ghost" onclick="saveDraft()">Save draft</button>` : ''}
+            <button class="btn btn-gold" onclick="${editingLive ? 'saveArticleEdit()' : 'submitArticle()'}">${editingLive ? 'Save changes' : (isEditor() ? 'Publish' : 'Send for approval')}</button>
           </div>
         </div>
         ${state.draftSaved ? `<div class="hint" style="color:var(--green);margin-top:10px;text-align:left;">Draft saved — only visible to you until you submit it.</div>` : ''}
@@ -735,6 +765,7 @@ function renderMain(){
       return;
     }
     const pending = state.articles.filter(a => a.status === 'pending');
+    const published = state.articles.filter(a => a.status === 'approved');
     let html = '';
     if(pending.length === 0){
       html += `<div class="empty"><div class="glyph">†</div><p>Queue is clear.</p></div>`;
@@ -747,6 +778,21 @@ function renderMain(){
           <div class="queue-actions">
             <button class="btn btn-gold" onclick="setStatus('${a.id}','approved')">Approve & publish</button>
             <button class="btn btn-rust" onclick="setStatus('${a.id}','rejected')">Decline</button>
+          </div>
+        </div>`).join('');
+    }
+    html += `<div class="field-note" style="margin:30px 0 10px;">Published</div>`;
+    if(published.length === 0){
+      html += `<div class="empty" style="padding:30px 0;"><p>Nothing published yet.</p></div>`;
+    } else {
+      html += published.map(a => `
+        <div class="queue-item">
+          <h3>${escapeHtml(a.title)}</h3>
+          <div class="byline"><b>${escapeHtml(a.author_name || a.author_email)}</b> · ${a.author_email} · ${fmtDate(a.created_at)}</div>
+          <div class="body-text">${escapeHtml(a.body)}</div>
+          <div class="queue-actions">
+            <button class="btn btn-ghost" onclick="editDraft('${a.id}')">Edit</button>
+            <button class="btn btn-rust" onclick="setStatus('${a.id}','pending')">Unpublish</button>
           </div>
         </div>`).join('');
     }
