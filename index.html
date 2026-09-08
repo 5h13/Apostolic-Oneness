@@ -649,28 +649,31 @@ async function loadArticleExtras(articleId){
   loadUserReaction(articleId, user);
 }
 
-async function loadReactionCounts(articleId){
+async function loadReactionCounts(articleId) {
   const { data, error } = await sb
     .from('reactions')
     .select('reaction_type, count(*)', { count: 'exact' })
     .eq('article_id', articleId)
     .group('reaction_type');
 
-  if(error){
+  if (error) {
     console.error('Error loading reactions:', error);
     return;
   }
 
+  // Reset all counts to 0
   document.querySelectorAll('#reaction-bar .reaction-btn span')
-    .forEach(span => span.textContent = '0');
+    .forEach(span => span.textContent = 0);
 
-  (data || []).forEach(row => {
+  // Apply counts
+  data.forEach(row => {
     const btn = document.querySelector(
       `.reaction-btn[data-type="${row.reaction_type}"] span`
     );
-    if(btn) btn.textContent = row.count;
+    if (btn) btn.textContent = row.count;
   });
 }
+
 
 async function setupReactionHandlers(articleId, user){
   if(!user) return;
