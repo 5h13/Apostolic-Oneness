@@ -86,6 +86,9 @@
   .welcome-message{max-width:560px;line-height:1.7;color:var(--slate);text-align:left;}
   .welcome-heading{margin:0 0 10px;color:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;}
   .welcome-copy{margin:0 0 14px;}
+  .feed-tools{padding:14px 16px;border-bottom:1px solid var(--ink-line);background:var(--ink-900);}
+  .feed-search{width:100%;background:var(--ink-800);border:1px solid var(--ink-line);border-radius:8px;padding:10px 12px;color:var(--paper);font-size:13px;font-family:'Inter',sans-serif;outline:none;}
+  .feed-search:focus{border-color:var(--gold);}
   .detail-article h2{font-family:'Fraunces',serif;font-weight:600;font-size:26px;line-height:1.25;margin:0 0 8px;}
   .engage-row{display:flex;gap:10px;margin-top:24px;align-items:center;}
   .comments-section{margin-top:34px;padding-top:22px;border-top:1px solid var(--ink-line);}
@@ -189,7 +192,8 @@ let state = {
   editingArticleId: null,
   draftSaved: false,
   err: "",
-  loading: true
+  loading: true,
+  searchTerm: ""
 };
 
 function isEditor(){
@@ -707,12 +711,11 @@ function listRowHtml(a, active, statusTag){
 }
 
 function renderSplit(main, items, opts){
-  if(items.length === 0){
-    main.innerHTML = `<div class="scroll-panel"><div class="narrow"><div class="empty"><div class="glyph">†</div><p>${opts.emptyTitle}</p>${opts.emptySub ? `<p>${opts.emptySub}</p>` : ''}</div></div></div>`;
-    return;
-  }
+  const listBody = items.length
+    ? items.map(a => opts.rowHtml(a, a.id === state.selectedId)).join('')
+    : `<div class="empty"><div class="glyph">†</div><p>${opts.emptyTitle}</p>${opts.emptySub ? `<p>${opts.emptySub}</p>` : ''}</div>`;
+
   const selected = items.find(a => a.id === state.selectedId) || null;
-  const listHtml = items.map(a => opts.rowHtml(a, a.id === state.selectedId)).join('');
   const detailHtml = selected
     ? `<a class="back-link" onclick="clearSelection();return false;" href="#">← Back to list</a>${opts.detailHtml(selected)}`
     : `<div class="detail-empty"><div class="glyph">†</div><div class="welcome-message">
@@ -724,11 +727,27 @@ function renderSplit(main, items, opts){
         <p class="welcome-copy">As you explore the articles on the left, may every page deepen your understanding of Jesus Christ, our Lord and Savior, and strengthen your walk in the apostolic faith.</p>
         <p class="welcome-copy" style="margin-bottom:0;">Select an article on the left to begin reading.</p>
       </div></div>`;
+
+  const searchHtml = opts.search ? `
+    <div class="feed-tools">
+      <input type="search" id="feedSearch" class="feed-search" value="${escapeHtml(state.searchTerm)}" placeholder="Search published articles...">
+    </div>` : '';
+
   main.innerHTML = `
     <div class="split ${state.selectedId ? 'has-selection' : ''}">
-      <div class="split-list">${listHtml}</div>
+      <div class="split-list">${searchHtml}${listBody}</div>
       <div class="split-detail">${detailHtml}</div>
     </div>`;
+
+  if(opts.search){
+    const feedSearch = document.getElementById('feedSearch');
+    if(feedSearch){
+      feedSearch.addEventListener('input', (event) => {
+        state.searchTerm = event.target.value;
+        render();
+      });
+    }
+  }
 }
 
 function feedDetailHtml(a){
@@ -961,11 +980,23 @@ function renderMain(){
 
   if(state.view === 'feed'){
     const approved = state.articles.filter(a => a.status === 'approved');
-    renderSplit(main, approved, {
-      emptyTitle: "No articles published yet.",
-      emptySub: "The first approved article of faith will appear here.",
+    const q = state.searchTerm.trim().toLowerCase();
+    const filtered = !q ? approved : approved.filter(a => {
+      const haystack = [
+        a.title,
+        a.author_name,
+        a.author_email,
+        a.body
+      ].join(' ').toLowerCase();
+      return haystack.includes(q);
+    });
+
+    renderSplit(main, filtered, {
+      emptyTitle: q ? "No published articles match your search." : "No articles published yet.",
+      emptySub: q ? "Try another keyword, author name, or phrase." : "The first approved article of faith will appear here.",
       rowHtml: (a, active) => listRowHtml(a, active),
-      detailHtml: feedDetailHtml
+      detailHtml: feedDetailHtml,
+      search: true
     });
     const cd = document.getElementById('commentDraft');
     if(cd) cd.oninput = e => state.commentDraft = e.target.value;
