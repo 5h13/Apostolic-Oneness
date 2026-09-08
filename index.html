@@ -26,9 +26,11 @@
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--ink-900);color:var(--paper);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  html,body{height:100vh;height:100dvh;}
+  body{display:flex;flex-direction:column;overflow:hidden;}
   a{color:inherit;}
-  .wrap{max-width:760px;margin:0 auto;padding:0 20px 80px;}
-  .masthead{padding:40px 0 0;}
+  .wrap{max-width:1100px;margin:0 auto;padding:0 20px;width:100%;box-sizing:border-box;display:flex;flex-direction:column;flex:1 1 auto;min-height:0;}
+  .masthead{padding:40px 0 0;flex:0 0 auto;}
   .masthead-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;}
   .brand{display:flex;flex-direction:column;gap:6px;}
   .brand h1{font-family:'Fraunces',serif;font-weight:600;font-size:40px;letter-spacing:-0.01em;margin:0;}
@@ -59,12 +61,30 @@
   .btn-rust{background:none;border:1px solid var(--rust);color:var(--rust);}
   .btn-small{padding:5px 10px;font-size:12px;}
   .hint{font-size:11px;color:var(--slate);margin-top:2px;text-align:right;}
-  .nav{display:flex;gap:2px;margin-top:28px;flex-wrap:wrap;}
+  .nav{display:flex;gap:2px;margin-top:28px;flex-wrap:wrap;flex:0 0 auto;}
   .nav button{background:none;border:none;color:var(--slate);font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;padding:10px 16px;cursor:pointer;border-bottom:2px solid transparent;}
   .nav button.active{color:var(--paper);border-bottom-color:var(--gold);}
   .nav button:hover{color:var(--paper);}
   .nav .count{display:inline-block;margin-left:6px;background:var(--amber-dim);color:var(--amber);border-radius:10px;padding:1px 6px;font-size:10px;}
-  main{padding-top:32px;}
+  #main{flex:1 1 auto;min-height:0;overflow:hidden;}
+  .scroll-panel{height:100%;overflow-y:auto;}
+  .narrow{max-width:640px;margin:0 auto;padding:24px 20px 60px;}
+  .split{display:flex;height:100%;}
+  .split-list{width:340px;flex:0 0 340px;overflow-y:auto;min-height:0;border-right:1px solid var(--ink-line);}
+  .split-detail{flex:1 1 auto;overflow-y:auto;min-height:0;padding:28px 40px 60px;}
+  .list-row{padding:14px 20px;border-bottom:1px solid var(--ink-line);cursor:pointer;border-left:3px solid transparent;}
+  .list-row:hover{background:var(--ink-800);}
+  .list-row.active{background:var(--ink-800);border-left-color:var(--gold);}
+  .list-row-title{font-family:'Fraunces',serif;font-size:15px;font-weight:600;line-height:1.3;margin-bottom:5px;}
+  .list-row-meta{font-size:11px;color:var(--slate);font-family:'IBM Plex Mono',monospace;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .stamp-mini{display:inline-block;padding:1px 7px;border-radius:8px;font-size:9px;letter-spacing:0.04em;text-transform:uppercase;}
+  .stamp-mini.approved{color:var(--green);background:var(--green-dim);}
+  .stamp-mini.pending{color:var(--amber);background:var(--amber-dim);}
+  .stamp-mini.rejected{color:var(--rust);background:var(--rust-dim);}
+  .stamp-mini.draft{color:var(--slate);background:rgba(136,144,162,0.14);}
+  .detail-empty{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--slate);text-align:center;}
+  .detail-article h2{font-family:'Fraunces',serif;font-weight:600;font-size:26px;line-height:1.25;margin:0 0 8px;}
+  .back-link{display:none;color:var(--gold);text-decoration:none;font-size:12px;font-family:'IBM Plex Mono',monospace;letter-spacing:0.04em;text-transform:uppercase;cursor:pointer;margin-bottom:18px;}
   .article{padding:26px 0;border-bottom:1px solid var(--ink-line);}
   .article:first-child{padding-top:0;}
   .article-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;}
@@ -103,6 +123,12 @@
     .masthead-top{flex-direction:column;}
     .login-form{align-items:stretch;}
   }
+  @media(max-width:760px){
+    .split-detail{display:none;padding:20px 20px 60px;}
+    .split.has-selection .split-list{display:none;}
+    .split.has-selection .split-detail{display:block;}
+    .back-link{display:inline-block;}
+  }
 </style>
 </head>
 <body>
@@ -132,7 +158,7 @@ let state = {
   session: null,
   view: "feed",
   articles: [],
-  openArticleId: null,
+  selectedId: null,
   loginEmail: "",
   loginPassword: "",
   authMode: "link",
@@ -331,6 +357,7 @@ async function handleSignOut(){
   state.submitBody = "";
   state.editingArticleId = null;
   state.draftSaved = false;
+  state.selectedId = null;
   state.err = "";
   await loadArticles();
   render();
@@ -342,11 +369,6 @@ async function loadArticles(){
   if(!error){
     state.articles = data || [];
   }
-}
-
-function toggleArticle(id){
-  state.openArticleId = state.openArticleId === id ? null : id;
-  render();
 }
 
 async function saveDraft(){
@@ -406,6 +428,7 @@ function editDraft(id){
   state.submitTitle = a.title;
   state.submitBody = a.body;
   state.draftSaved = false;
+  state.selectedId = null;
   state.err = "";
   state.view = "submit";
   render();
@@ -417,6 +440,7 @@ async function deleteDraft(id){
     state.err = error.message;
   }
   if(state.editingArticleId === id) newSubmission();
+  state.selectedId = null;
   await loadArticles();
   render();
 }
@@ -452,6 +476,7 @@ async function submitArticle(){
   state.submitBody = "";
   state.editingArticleId = null;
   state.draftSaved = false;
+  state.selectedId = null;
   state.view = isEditor() ? "feed" : "desk";
   await loadArticles();
   render();
@@ -476,6 +501,7 @@ async function saveArticleEdit(){
   state.submitBody = "";
   state.editingArticleId = null;
   state.draftSaved = false;
+  state.selectedId = null;
   state.view = "review";
   await loadArticles();
   render();
@@ -488,6 +514,7 @@ async function setStatus(id, status){
   if(error){
     state.err = error.message;
   }
+  state.selectedId = null;
   await loadArticles();
   render();
 }
@@ -497,49 +524,101 @@ function stampHtml(status){
   return `<div class="stamp ${status}">${label}</div>`;
 }
 
-function draftCard(a){
-  const excerpt = a.body.length > 160 ? a.body.slice(0,160).trim() + "…" : a.body;
+function stampMini(status){
+  const label = status === "approved" ? "Published" : status === "pending" ? "Pending" : status === "draft" ? "Draft" : "Declined";
+  return `<span class="stamp-mini ${status}">${label}</span>`;
+}
+
+function selectArticle(id){
+  state.selectedId = id;
+  render();
+}
+
+function clearSelection(){
+  state.selectedId = null;
+  render();
+}
+
+function listRowHtml(a, active, statusTag){
   return `
-    <div class="queue-item">
-      <h3>${escapeHtml(a.title || "(untitled draft)")}</h3>
-      <div class="byline">Draft · started ${fmtDate(a.created_at)}</div>
-      <div class="excerpt" style="margin-top:8px;">${excerpt ? escapeHtml(excerpt) : '<em>No text yet.</em>'}</div>
-      <div class="queue-actions">
-        <button class="btn btn-gold btn-small" onclick="editDraft('${a.id}')">Continue editing</button>
-        <button class="btn btn-rust btn-small" onclick="deleteDraft('${a.id}')">Discard</button>
-      </div>
+    <div class="list-row ${active ? 'active' : ''}" onclick="selectArticle('${a.id}')">
+      <div class="list-row-title">${escapeHtml(a.title || "(untitled)")}</div>
+      <div class="list-row-meta">${statusTag ? statusTag : ''}${escapeHtml(a.author_name || a.author_email)} · ${fmtDate(a.created_at)}</div>
     </div>`;
 }
 
-function articleCard(a, opts){
-  opts = opts || {};
-  const open = state.openArticleId === a.id;
-  const truncated = a.body.length > 220;
-  const excerpt = truncated ? a.body.slice(0,220).trim() + "…" : a.body;
-  const seeMore = truncated ? ` <a href="#" class="toggle-link" onclick="toggleArticle('${a.id}');return false;">See more...</a>` : '';
-  const seeLess = ` <a href="#" class="toggle-link" onclick="toggleArticle('${a.id}');return false;">See less...</a>`;
-  return `
-    <div class="article">
-      <div class="article-head">
-        <div>
-          <h2 onclick="toggleArticle('${a.id}')">${escapeHtml(a.title)}</h2>
-          <div class="byline"><b>${escapeHtml(a.author_name || a.author_email)}</b> · ${fmtDate(a.created_at)}</div>
-        </div>
-        ${opts.showStamp ? stampHtml(a.status) : ''}
-      </div>
-      ${open
-        ? `<div class="body-text">${escapeHtml(a.body)}${seeLess}</div>`
-        : `<div class="excerpt">${escapeHtml(excerpt)}${seeMore}</div>`}
-      ${opts.adminControls && a.status !== 'approved' ? `
-        <div class="article-actions">
-          <button class="btn btn-gold btn-small" onclick="setStatus('${a.id}','approved')">Approve</button>
-          <button class="btn btn-rust btn-small" onclick="setStatus('${a.id}','rejected')">Decline</button>
-        </div>` : ''}
-      ${opts.adminControls && a.status === 'approved' ? `
-        <div class="article-actions">
-          <button class="btn btn-ghost btn-small" onclick="setStatus('${a.id}','pending')">Unpublish</button>
-        </div>` : ''}
+function renderSplit(main, items, opts){
+  if(items.length === 0){
+    main.innerHTML = `<div class="scroll-panel"><div class="narrow"><div class="empty"><div class="glyph">†</div><p>${opts.emptyTitle}</p>${opts.emptySub ? `<p>${opts.emptySub}</p>` : ''}</div></div></div>`;
+    return;
+  }
+  const selected = items.find(a => a.id === state.selectedId) || null;
+  const listHtml = items.map(a => opts.rowHtml(a, a.id === state.selectedId)).join('');
+  const detailHtml = selected
+    ? `<a class="back-link" onclick="clearSelection();return false;" href="#">← Back to list</a>${opts.detailHtml(selected)}`
+    : `<div class="detail-empty"><div class="glyph">†</div><p>Select an article on the left to read it here.</p></div>`;
+  main.innerHTML = `
+    <div class="split ${state.selectedId ? 'has-selection' : ''}">
+      <div class="split-list">${listHtml}</div>
+      <div class="split-detail">${detailHtml}</div>
     </div>`;
+}
+
+function feedDetailHtml(a){
+  return `
+    <article class="detail-article">
+      <h2>${escapeHtml(a.title)}</h2>
+      <div class="byline"><b>${escapeHtml(a.author_name || a.author_email)}</b> · ${fmtDate(a.created_at)}</div>
+      <div class="body-text" style="margin-top:18px;">${escapeHtml(a.body)}</div>
+    </article>`;
+}
+
+function deskDetailHtml(a){
+  if(a.status === 'draft'){
+    return `
+      <article class="detail-article">
+        <h2>${escapeHtml(a.title || "(untitled draft)")}</h2>
+        <div class="byline">Draft · started ${fmtDate(a.created_at)}</div>
+        <div class="body-text" style="margin-top:18px;">${a.body ? escapeHtml(a.body) : '<em>No text yet.</em>'}</div>
+        <div class="article-actions">
+          <button class="btn btn-gold btn-small" onclick="editDraft('${a.id}')">Continue editing</button>
+          <button class="btn btn-rust btn-small" onclick="deleteDraft('${a.id}')">Discard</button>
+        </div>
+      </article>`;
+  }
+  return `
+    <article class="detail-article">
+      <div class="article-head" style="margin-bottom:6px;">
+        <h2 style="margin:0;">${escapeHtml(a.title)}</h2>
+        ${stampHtml(a.status)}
+      </div>
+      <div class="byline">${fmtDate(a.created_at)}</div>
+      <div class="body-text" style="margin-top:18px;">${escapeHtml(a.body)}</div>
+    </article>`;
+}
+
+function reviewDetailHtml(a){
+  const actions = a.status === 'pending'
+    ? `<div class="article-actions">
+         <button class="btn btn-gold" onclick="setStatus('${a.id}','approved')">Approve & publish</button>
+         <button class="btn btn-rust" onclick="setStatus('${a.id}','rejected')">Decline</button>
+       </div>`
+    : a.status === 'approved'
+      ? `<div class="article-actions">
+           <button class="btn btn-ghost" onclick="editDraft('${a.id}')">Edit</button>
+           <button class="btn btn-rust" onclick="setStatus('${a.id}','pending')">Unpublish</button>
+         </div>`
+      : '';
+  return `
+    <article class="detail-article">
+      <div class="article-head" style="margin-bottom:6px;">
+        <h2 style="margin:0;">${escapeHtml(a.title)}</h2>
+        ${stampHtml(a.status)}
+      </div>
+      <div class="byline"><b>${escapeHtml(a.author_name || a.author_email)}</b> · ${a.author_email} · ${fmtDate(a.created_at)}</div>
+      <div class="body-text" style="margin-top:18px;">${escapeHtml(a.body)}</div>
+      ${actions}
+    </article>`;
 }
 
 function renderAuthBox(){
@@ -671,6 +750,7 @@ function setView(v){
     state.draftSaved = false;
   }
   state.view = v;
+  state.selectedId = null;
   state.err = "";
   render();
 }
@@ -689,20 +769,21 @@ function renderMain(){
 
   if(state.view === 'feed'){
     const approved = state.articles.filter(a => a.status === 'approved');
-    if(approved.length === 0){
-      main.innerHTML = `<div class="empty"><div class="glyph">†</div><p>No articles published yet.</p><p>The first approved article of faith will appear here.</p></div>`;
-      return;
-    }
-    main.innerHTML = approved.map(a => articleCard(a, {showStamp:false})).join('');
+    renderSplit(main, approved, {
+      emptyTitle: "No articles published yet.",
+      emptySub: "The first approved article of faith will appear here.",
+      rowHtml: (a, active) => listRowHtml(a, active),
+      detailHtml: feedDetailHtml
+    });
     return;
   }
 
   if(!state.session){
-    main.innerHTML = `<div class="locked-msg"><div class="glyph">†</div><p>Sign in above with your email to write, and (if you're the editor) publish.</p></div>`;
+    main.innerHTML = `<div class="scroll-panel"><div class="narrow"><div class="locked-msg"><div class="glyph">†</div><p>Sign in above with your email to write, and (if you're the editor) publish.</p></div></div></div>`;
     return;
   }
   if(!displayName()){
-    main.innerHTML = `<div class="locked-msg"><div class="glyph">†</div><p>Add a name above for your byline to continue.</p></div>`;
+    main.innerHTML = `<div class="scroll-panel"><div class="narrow"><div class="locked-msg"><div class="glyph">†</div><p>Add a name above for your byline to continue.</p></div></div></div>`;
     return;
   }
 
@@ -710,6 +791,7 @@ function renderMain(){
     const editingArticle = state.editingArticleId ? state.articles.find(x => x.id === state.editingArticleId) : null;
     const editingLive = editingArticle && editingArticle.status !== 'draft';
     main.innerHTML = `
+      <div class="scroll-panel"><div class="narrow">
       <div class="panel">
         ${state.editingArticleId
           ? (editingLive
@@ -733,7 +815,8 @@ function renderMain(){
         </div>
         ${state.draftSaved ? `<div class="hint" style="color:var(--green);margin-top:10px;text-align:left;">Draft saved — only visible to you until you submit it.</div>` : ''}
         ${state.err ? `<div class="hint" style="color:var(--rust);margin-top:10px;text-align:left;">${escapeHtml(state.err)}</div>` : ''}
-      </div>`;
+      </div>
+      </div></div>`;
     document.getElementById('submitTitle').oninput = e => { state.submitTitle = e.target.value; state.draftSaved = false; };
     document.getElementById('submitBody').oninput = e => { state.submitBody = e.target.value; state.draftSaved = false; };
     return;
@@ -741,62 +824,27 @@ function renderMain(){
 
   if(state.view === 'desk'){
     const mine = state.articles.filter(a => a.author_email === state.session.user.email);
-    if(mine.length === 0){
-      main.innerHTML = `<div class="empty"><div class="glyph">†</div><p>Nothing submitted yet.</p><p>Head to Submit to write your first article of faith.</p></div>`;
-      return;
-    }
-    const drafts = mine.filter(a => a.status === 'draft');
-    const others = mine.filter(a => a.status !== 'draft');
-    let html = '';
-    if(drafts.length){
-      html += `<div class="field-note" style="margin-bottom:10px;">Drafts — only visible to you</div>`;
-      html += drafts.map(a => draftCard(a)).join('');
-    }
-    if(others.length){
-      html += others.map(a => articleCard(a, {showStamp:true})).join('');
-    }
-    main.innerHTML = html;
+    renderSplit(main, mine, {
+      emptyTitle: "Nothing submitted yet.",
+      emptySub: "Head to Submit to write your first article of faith.",
+      rowHtml: (a, active) => listRowHtml(a, active, stampMini(a.status) + ' · '),
+      detailHtml: deskDetailHtml
+    });
     return;
   }
 
   if(state.view === 'review'){
     if(!isEditor()){
-      main.innerHTML = `<div class="locked-msg"><div class="glyph">†</div><p>This desk is for the editor only.</p></div>`;
+      main.innerHTML = `<div class="scroll-panel"><div class="narrow"><div class="locked-msg"><div class="glyph">†</div><p>This desk is for the editor only.</p></div></div></div>`;
       return;
     }
     const pending = state.articles.filter(a => a.status === 'pending');
     const published = state.articles.filter(a => a.status === 'approved');
-    let html = '';
-    if(pending.length === 0){
-      html += `<div class="empty"><div class="glyph">†</div><p>Queue is clear.</p></div>`;
-    } else {
-      html += pending.map(a => `
-        <div class="queue-item">
-          <h3>${escapeHtml(a.title)}</h3>
-          <div class="byline"><b>${escapeHtml(a.author_name || a.author_email)}</b> · ${a.author_email} · ${fmtDate(a.created_at)}</div>
-          <div class="body-text">${escapeHtml(a.body)}</div>
-          <div class="queue-actions">
-            <button class="btn btn-gold" onclick="setStatus('${a.id}','approved')">Approve & publish</button>
-            <button class="btn btn-rust" onclick="setStatus('${a.id}','rejected')">Decline</button>
-          </div>
-        </div>`).join('');
-    }
-    html += `<div class="field-note" style="margin:30px 0 10px;">Published</div>`;
-    if(published.length === 0){
-      html += `<div class="empty" style="padding:30px 0;"><p>Nothing published yet.</p></div>`;
-    } else {
-      html += published.map(a => `
-        <div class="queue-item">
-          <h3>${escapeHtml(a.title)}</h3>
-          <div class="byline"><b>${escapeHtml(a.author_name || a.author_email)}</b> · ${a.author_email} · ${fmtDate(a.created_at)}</div>
-          <div class="body-text">${escapeHtml(a.body)}</div>
-          <div class="queue-actions">
-            <button class="btn btn-ghost" onclick="editDraft('${a.id}')">Edit</button>
-            <button class="btn btn-rust" onclick="setStatus('${a.id}','pending')">Unpublish</button>
-          </div>
-        </div>`).join('');
-    }
-    main.innerHTML = html;
+    renderSplit(main, [...pending, ...published], {
+      emptyTitle: "Nothing to review yet.",
+      rowHtml: (a, active) => listRowHtml(a, active, stampMini(a.status) + ' · '),
+      detailHtml: reviewDetailHtml
+    });
     return;
   }
 }
