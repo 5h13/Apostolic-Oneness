@@ -328,7 +328,10 @@ function renderAuthBox(){
 
 function renderNav(){
   const nav = document.getElementById('nav');
-  if(!state.session || !displayName()){ nav.innerHTML = ''; return; }
+  if(!state.session || !displayName()){
+    nav.innerHTML = `<button class="active">Feed</button>`;
+    return;
+  }
   const admin = isEditor();
   const pendingCount = state.articles.filter(a => a.status === 'pending').length;
   const tabs = [
@@ -361,15 +364,6 @@ function renderBanner(){
 function renderMain(){
   const main = document.getElementById('main');
 
-  if(!state.session){
-    main.innerHTML = `<div class="locked-msg"><div class="glyph">†</div><p>Sign in above with your email to read, write, and (if you're the editor) publish.</p></div>`;
-    return;
-  }
-  if(!displayName()){
-    main.innerHTML = `<div class="locked-msg"><div class="glyph">†</div><p>Add a name above for your byline to continue.</p></div>`;
-    return;
-  }
-
   if(state.view === 'feed'){
     const approved = state.articles.filter(a => a.status === 'approved');
     if(approved.length === 0){
@@ -377,6 +371,15 @@ function renderMain(){
       return;
     }
     main.innerHTML = approved.map(a => articleCard(a, {showStamp:false})).join('');
+    return;
+  }
+
+  if(!state.session){
+    main.innerHTML = `<div class="locked-msg"><div class="glyph">†</div><p>Sign in above with your email to write, and (if you're the editor) publish.</p></div>`;
+    return;
+  }
+  if(!displayName()){
+    main.innerHTML = `<div class="locked-msg"><div class="glyph">†</div><p>Add a name above for your byline to continue.</p></div>`;
     return;
   }
 
@@ -448,22 +451,20 @@ function render(){
 async function init(){
   const { data: { session } } = await sb.auth.getSession();
   state.session = session;
-  if(session) await loadArticles();
+  await loadArticles();
   render();
 
   sb.auth.onAuthStateChange(async (_event, session) => {
     state.session = session;
     state.magicLinkSent = false;
-    if(session) await loadArticles();
+    await loadArticles();
     render();
   });
 
   sb.channel('articles-changes')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'articles' }, async () => {
-      if(state.session){
-        await loadArticles();
-        render();
-      }
+      await loadArticles();
+      render();
     })
     .subscribe();
 }
