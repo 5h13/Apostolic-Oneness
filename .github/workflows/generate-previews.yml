@@ -1,0 +1,32 @@
+name: Generate article preview pages
+
+on:
+  schedule:
+    # Every 20 minutes. Adjust if you want it faster/slower.
+    - cron: '*/20 * * * *'
+  workflow_dispatch: {}   # adds a manual "Run workflow" button in the Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Generate preview pages
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: node scripts/generate-previews.mjs
+
+      - name: Commit and push if changed
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Regenerate article preview pages"
+          file_pattern: "a/**"
