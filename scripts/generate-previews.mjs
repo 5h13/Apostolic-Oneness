@@ -81,10 +81,12 @@ function pageHtml(a) {
 <meta property="og:title" content="${title}">
 <meta property="og:description" content="${desc}">
 <meta property="og:url" content="${canonicalUrl}">
+<meta property="og:image" content="${SITE_ORIGIN}${BASE_PATH}assets/logo-og.jpg">
 
-<meta name="twitter:card" content="summary">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${title}">
 <meta name="twitter:description" content="${desc}">
+<meta name="twitter:image" content="${SITE_ORIGIN}${BASE_PATH}assets/logo-og.jpg">
 
 <link rel="canonical" href="${canonicalUrl}">
 <script>location.replace(${JSON.stringify(redirectUrl)});</script>
