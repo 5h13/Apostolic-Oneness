@@ -45,6 +45,8 @@
   .masthead{padding:40px 0 0;flex:0 0 auto;}
   .masthead-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;}
   .brand{display:flex;flex-direction:row;align-items:center;gap:14px;}
+  .brand-link{cursor:pointer;}
+  .brand-link:hover{opacity:0.85;}
   .brand-logo{width:44px;height:44px;border-radius:6px;object-fit:cover;flex-shrink:0;}
   .brand h1{font-family:'Fraunces',serif;font-weight:600;font-size:40px;letter-spacing:-0.01em;margin:0;}
   .brand .tagline{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--slate);}
@@ -198,7 +200,7 @@
 <div class="wrap">
   <div class="masthead">
     <div class="masthead-top">
-      <div class="brand">
+      <div class="brand brand-link" onclick="goHome()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();goHome();}" role="button" tabindex="0" title="Back to Feed">
         <img src="assets/logo-icon.jpg" alt="Apostolic Oneness" class="brand-logo">
         <div>
           <h1>Apostolic Oneness</h1>
@@ -1674,6 +1676,13 @@ function renderNav(){
     <button class="${state.view===t.id?'active':''}" onclick="setView('${t.id}')">
       ${t.label}${t.count ? `<span class="count">${t.count}</span>` : ''}
     </button>`).join('');
+}
+
+function goHome(){
+  if(window.location.hash){
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+  }
+  setView('feed');
 }
 
 function setView(v){
