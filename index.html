@@ -60,6 +60,7 @@
   .auth-box .who .seal{width:22px;height:22px;border-radius:50%;background:var(--gold-dim);color:var(--gold);display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;flex-shrink:0;}
   .auth-box .name{font-weight:500;}
   .auth-box .role-admin{color:var(--gold);font-size:11px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.06em;}
+  .auth-box .role-mod{color:var(--green);font-size:11px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.06em;}
   .auth-box .role-user{color:var(--slate);font-size:11px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.06em;}
   .auth-box .signout{margin-left:auto;background:none;border:none;color:var(--slate);cursor:pointer;font-size:12px;text-decoration:underline;padding:0;font-family:'Inter',sans-serif;}
   .auth-box .signout:hover{color:var(--paper);}
@@ -295,6 +296,15 @@ let state = {
 
 function isEditor(){
   return !!state.session && state.session.user.email === EDITOR_EMAIL;
+}
+function isModerator(){
+  return !!state.session && !!state.profile && state.profile.role === 'moderator';
+}
+// "Staff" = editor or moderator — everything a moderator can do, an
+// editor can do too. Use isEditor() specifically only for things a
+// moderator should NOT get (User Desk / profile management).
+function isStaff(){
+  return isEditor() || isModerator();
 }
 
 // Editors are never locked out by their own moderation actions — avoids
@@ -656,8 +666,8 @@ async function submitArticle(){
   };
   let error;
   if(state.editingArticleId){
-    const patch = { title, body, status: isEditor() ? 'approved' : 'pending', ...categoryPatch };
-    if(isEditor()) patch.approved_at = new Date().toISOString();
+    const patch = { title, body, status: isStaff() ? 'approved' : 'pending', ...categoryPatch };
+    if(isStaff()) patch.approved_at = new Date().toISOString();
     ({ error } = await sb.from('articles').update(patch).eq('id', state.editingArticleId));
   } else {
     ({ error } = await sb.from('articles').insert({
@@ -680,7 +690,7 @@ async function submitArticle(){
   state.editingArticleId = null;
   state.draftSaved = false;
   state.selectedId = null;
-  state.view = isEditor() ? "feed" : "desk";
+  state.view = isStaff() ? "feed" : "desk";
   await loadArticles();
   render();
 }
@@ -797,6 +807,21 @@ async function revokeUser(userId){
   render();
 }
 
+// Only the true editor can change this (enforced both by not showing
+// the button anywhere else, and — the real boundary — the DB trigger
+// that clamps role/status changes back unless the caller is the editor).
+async function setUserRole(userId, role){
+  const { error } = await sb.from('profiles').update({ role }).eq('id', userId);
+  if(error){ state.err = error.message; }
+  await loadUsers();
+  render();
+}
+
+function userRoleBadge(role){
+  if(role === 'moderator') return `<span class="stamp-mini pending">Moderator</span>`;
+  return `<span class="hint" style="margin:0;">Contributor</span>`;
+}
+
 function userStatusBadge(status){
   const label = status === 'active' ? 'Active' : status === 'suspended' ? 'Suspended' : 'Revoked';
   const cls = status === 'active' ? 'approved' : status === 'suspended' ? 'pending' : 'rejected';
@@ -810,6 +835,12 @@ function userActionsHtml(u){
   const menuOpen = state.suspendMenuFor === u.id;
   const buttons = [];
   buttons.push(`<button class="btn btn-ghost btn-small" onclick="messageUser('${u.id}')">Message</button>`);
+
+  if(u.role === 'moderator'){
+    buttons.push(`<button class="btn btn-ghost btn-small" onclick="setUserRole('${u.id}','user')">Remove moderator</button>`);
+  } else {
+    buttons.push(`<button class="btn btn-ghost btn-small" onclick="setUserRole('${u.id}','moderator')">Make moderator</button>`);
+  }
 
   if(u.status !== 'active'){
     buttons.push(`<button class="btn btn-ghost btn-small" onclick="reinstateUser('${u.id}')">Reinstate</button>`);
@@ -860,9 +891,10 @@ function renderUsersDashboard(main){
         </td>
         <td>${fmtDate(u.created_at)}</td>
         <td>${userStatusBadge(u.status)}</td>
+        <td>${userRoleBadge(u.role)}</td>
         <td>${userActionsHtml(u)}</td>
       </tr>`).join('')
-    : `<tr><td colspan="4" class="hint" style="text-align:center;padding:24px 0;">No users match.</td></tr>`;
+    : `<tr><td colspan="5" class="hint" style="text-align:center;padding:24px 0;">No users match.</td></tr>`;
 
   const categoryPillHtml = (c) => `
     <span class="category-pill">
@@ -902,7 +934,7 @@ function renderUsersDashboard(main){
           </select>
         </div>
         <table class="user-table">
-          <thead><tr><th>User</th><th>Joined</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr><th>User</th><th>Joined</th><th>Status</th><th>Role</th><th>Actions</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
@@ -949,7 +981,7 @@ async function loadUnreadTotal(){
 }
 
 async function loadThreads(){
-  if(!isEditor()) return;
+  if(!isStaff()) return;
   const { data, error } = await sb
     .from('messages')
     .select('*')
@@ -1002,7 +1034,7 @@ async function loadThread(contributorId){
     state.messages.forEach(m => { if(unreadIds.includes(m.id)) m.read_at = nowIso; });
   }
   await loadUnreadTotal();
-  if(isEditor()) await loadThreads();
+  if(isStaff()) await loadThreads();
 }
 
 function selectThread(contributorId){
@@ -1027,7 +1059,7 @@ async function sendMessage(){
   if(!body) return;
 
   const selfId = state.session.user.id;
-  const contributorId = isEditor() ? state.selectedThreadId : selfId;
+  const contributorId = isStaff() ? state.selectedThreadId : selfId;
   if(!contributorId) return;
 
   state.messageDraft = "";
@@ -1614,7 +1646,7 @@ function feedDetailHtml(a){
         ${state.comments.length === 0 ? `<div class="hint" style="text-align:left;">No comments yet.</div>` : state.comments.map(c => `
           <div class="comment">
             <div class="comment-meta"><b>${escapeHtml(c.author_name || c.author_email)}</b> · ${fmtDate(c.created_at)}
-              ${(state.session && (c.author_email === state.session.user.email || isEditor())) ? `<a href="javascript:void(0)" class="toggle-link" onclick="deleteComment('${c.id}','${a.id}');return false;">Delete</a>` : ''}
+              ${(state.session && (c.author_email === state.session.user.email || isStaff())) ? `<a href="javascript:void(0)" class="toggle-link" onclick="deleteComment('${c.id}','${a.id}');return false;">Delete</a>` : ''}
             </div>
             <div class="comment-body">${escapeHtml(c.body)}</div>
             ${canInteract ? `<div class="comment-actions"><a href="javascript:void(0)" class="toggle-link" onclick="startReply('${c.id}');return false;">Reply</a></div>` : ''}
@@ -1756,7 +1788,8 @@ function renderAuthBox(){
     document.getElementById('nameDraft').onkeydown = e => { if(e.key==='Enter') saveName(); };
     return;
   }
-  const admin = isEditor();
+  const roleLabel = isEditor() ? 'Editor' : isModerator() ? 'Moderator' : 'Contributor';
+  const roleClass = isEditor() ? 'role-admin' : isModerator() ? 'role-mod' : 'role-user';
   let passwordBlock = '';
   if(state.showPasswordSet){
     passwordBlock = `
@@ -1775,7 +1808,7 @@ function renderAuthBox(){
         <div class="seal">${initials(displayName())}</div>
         <div>
           <div class="name">${escapeHtml(displayName())}</div>
-          <div class="${admin ? 'role-admin' : 'role-user'}">${admin ? 'Editor' : 'Contributor'}</div>
+          <div class="${roleClass}">${roleLabel}</div>
         </div>
         <button class="signout" onclick="toggleSetPassword()" style="margin-left:12px;">${state.showPasswordSet ? 'Cancel' : 'Set password'}</button>
         <button class="signout" onclick="handleSignOut()">Sign out</button>
@@ -1878,7 +1911,7 @@ function renderNav(){
     nav.innerHTML = `<button class="active">Feed (${feedCount})</button>`;
     return;
   }
-  const admin = isEditor();
+  const staff = isStaff();
   const pendingCount = state.articles.filter(a => a.status === 'pending').length;
   const tabs = [
     {id:'feed', label:`Feed (${feedCount})`},
@@ -1886,8 +1919,10 @@ function renderNav(){
     {id:'desk', label:'My desk'},
     {id:'messages', label:'Messages', count: state.unreadTotal}
   ];
-  if(admin){
+  if(staff){
     tabs.push({id:'review', label:'Review desk', count: pendingCount});
+  }
+  if(isEditor()){
     tabs.push({id:'users', label:'User Desk'});
   }
   nav.innerHTML = tabs.map(t => `
@@ -1924,7 +1959,7 @@ function setView(v){
     loadUsers().then(render);
   }
   if(v === 'messages' && state.session){
-    if(isEditor()){
+    if(isStaff()){
       loadThreads().then(render);
     } else {
       loadThread(state.session.user.id).then(render);
@@ -2027,10 +2062,10 @@ function renderMain(){
           </div>
         </div>
         <div class="submit-row">
-          <div class="field-note">${editingLive ? "Saves in place — no re-approval needed." : (isEditor() ? "Publishes immediately — you're the editor." : "Goes to the editor for approval before it's published.")}</div>
+          <div class="field-note">${editingLive ? "Saves in place — no re-approval needed." : (isStaff() ? "Publishes immediately — you have review privileges." : "Goes to the editor for approval before it's published.")}</div>
           <div style="display:flex;gap:8px;">
             ${!editingLive ? `<button class="btn btn-ghost" onclick="saveDraft()">Save draft</button>` : ''}
-            <button class="btn btn-gold" onclick="${editingLive ? 'saveArticleEdit()' : 'submitArticle()'}">${editingLive ? 'Save changes' : (isEditor() ? 'Publish' : 'Send for approval')}</button>
+            <button class="btn btn-gold" onclick="${editingLive ? 'saveArticleEdit()' : 'submitArticle()'}">${editingLive ? 'Save changes' : (isStaff() ? 'Publish' : 'Send for approval')}</button>
           </div>
         </div>
         ${state.draftSaved ? `<div class="hint" style="color:var(--green);margin-top:10px;text-align:left;">Draft saved — only visible to you until you submit it.</div>` : ''}
@@ -2066,8 +2101,8 @@ function renderMain(){
   }
 
   if(state.view === 'review'){
-    if(!isEditor()){
-      main.innerHTML = `<div class="scroll-panel"><div class="narrow"><div class="locked-msg"><div class="glyph">†</div><p>This desk is for the editor only.</p></div></div></div>`;
+    if(!isStaff()){
+      main.innerHTML = `<div class="scroll-panel"><div class="narrow"><div class="locked-msg"><div class="glyph">†</div><p>This desk is for the editor and moderators only.</p></div></div></div>`;
       return;
     }
     const pending = state.articles.filter(a => a.status === 'pending');
@@ -2095,7 +2130,7 @@ function renderMain(){
       main.innerHTML = `<div class="scroll-panel"><div class="narrow"><div class="locked-msg"><div class="glyph">†</div><p>Sign in to view messages.</p></div></div></div>`;
       return;
     }
-    if(isEditor()){
+    if(isStaff()){
       renderMessagesInbox(main);
     } else {
       renderMyThread(main);
@@ -2155,7 +2190,7 @@ async function init(){
     .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, async () => {
       await loadUnreadTotal();
       if(state.view === 'messages' && state.session){
-        if(isEditor()){
+        if(isStaff()){
           await loadThreads();
           if(state.selectedThreadId) await loadThread(state.selectedThreadId);
         } else {
