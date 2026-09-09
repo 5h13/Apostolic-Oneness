@@ -1215,7 +1215,11 @@ async function toggleLike(articleId){
 async function shareArticle(id){
   const a = state.articles.find(x => x.id === id);
   const slug = a ? articleSlug(a) : id;
-  const url = window.location.origin + window.location.pathname + '#article-' + slug;
+  // Share the pre-rendered preview page (real og:title/description that
+  // link-preview crawlers can read), not the bare #hash URL — crawlers
+  // never see anything after '#', and never run JS to find out.
+  const basePath = window.location.pathname.replace(/[^/]*$/, '');
+  const url = window.location.origin + basePath + 'a/' + slug + '.html';
   if(navigator.share){
     try { await navigator.share({ title: a ? a.title : 'Article', url }); }
     catch(e) { /* user cancelled — ignore */ }
