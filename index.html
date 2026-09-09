@@ -140,6 +140,15 @@
   .user-table td{padding:10px;border-bottom:1px solid var(--ink-line);vertical-align:top;font-size:13px;}
   .user-actions{display:flex;gap:6px;flex-wrap:wrap;}
   .suspend-menu{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+  .msg-header{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--slate);margin-bottom:14px;}
+  .msg-thread{display:flex;flex-direction:column;gap:10px;max-height:50vh;overflow-y:auto;padding-bottom:10px;}
+  .msg-bubble{max-width:70%;padding:10px 14px;border-radius:10px;border:1px solid var(--ink-line);}
+  .msg-bubble.mine{align-self:flex-end;background:var(--ink-800);border-color:var(--gold-dim,var(--ink-line));}
+  .msg-bubble.theirs{align-self:flex-start;background:transparent;}
+  .msg-body{font-size:14px;line-height:1.5;white-space:pre-wrap;}
+  .msg-meta{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--slate);margin-top:4px;}
+  .msg-composer{display:flex;gap:10px;margin-top:16px;align-items:flex-end;}
+  .msg-composer textarea{flex:1;min-height:60px;background:var(--ink-800);border:1px solid var(--ink-line);color:var(--paper);border-radius:8px;padding:10px 12px;font-family:'Inter',sans-serif;font-size:14px;resize:vertical;}
   @media (max-width:700px){
     .stat-grid{grid-template-columns:repeat(2,1fr);}
     .user-table thead{display:none;}
@@ -228,7 +237,13 @@ let state = {
   usersLoaded: false,
   userSearchTerm: "",
   userStatusFilter: "all",
-  suspendMenuFor: null
+  suspendMenuFor: null,
+  messages: [],
+  threads: [],
+  threadsLoaded: false,
+  selectedThreadId: null,
+  messageDraft: "",
+  unreadTotal: 0
 };
 
 function isEditor(){
@@ -724,6 +739,7 @@ function userActionsHtml(u){
   }
   const menuOpen = state.suspendMenuFor === u.id;
   const buttons = [];
+  buttons.push(`<button class="btn btn-ghost btn-small" onclick="messageUser('${u.id}')">Message</button>`);
 
   if(u.status !== 'active'){
     buttons.push(`<button class="btn btn-ghost btn-small" onclick="reinstateUser('${u.id}')">Reinstate</button>`);
@@ -814,6 +830,172 @@ function renderUsersDashboard(main){
 
   document.getElementById('userSearch').oninput = e => { state.userSearchTerm = e.target.value; renderUsersDashboard(main); };
   document.getElementById('userStatusFilter').onchange = e => { state.userStatusFilter = e.target.value; renderUsersDashboard(main); };
+}
+
+// ===== Internal messaging (editor <-> contributor, one thread each) =====
+
+async function loadUnreadTotal(){
+  if(!state.session){ state.unreadTotal = 0; return; }
+  const { count, error } = await sb
+    .from('messages')
+    .select('id', { count: 'exact', head: true })
+    .is('read_at', null)
+    .neq('sender_id', state.session.user.id);
+  if(!error) state.unreadTotal = count || 0;
+}
+
+async function loadThreads(){
+  if(!isEditor()) return;
+  const { data, error } = await sb
+    .from('messages')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if(error){ state.err = error.message; return; }
+
+  const byContributor = new Map();
+  (data || []).forEach(m => {
+    if(!byContributor.has(m.contributor_id)){
+      byContributor.set(m.contributor_id, {
+        id: m.contributor_id,
+        lastBody: m.body,
+        lastAt: m.created_at,
+        unread: 0
+      });
+    }
+    const t = byContributor.get(m.contributor_id);
+    if(m.sender_id !== state.session.user.id && !m.read_at) t.unread++;
+  });
+
+  const ids = Array.from(byContributor.keys());
+  if(ids.length){
+    const { data: profiles } = await sb.from('profiles').select('id,email,display_name').in('id', ids);
+    (profiles || []).forEach(p => {
+      const t = byContributor.get(p.id);
+      if(t){ t.email = p.email; t.name = p.display_name || p.email; }
+    });
+  }
+
+  state.threads = Array.from(byContributor.values())
+    .sort((a, b) => new Date(b.lastAt) - new Date(a.lastAt));
+  state.threadsLoaded = true;
+}
+
+async function loadThread(contributorId){
+  if(!contributorId || !state.session) return;
+  const { data, error } = await sb
+    .from('messages')
+    .select('*')
+    .eq('contributor_id', contributorId)
+    .order('created_at', { ascending: true });
+  if(error){ state.err = error.message; return; }
+  state.messages = data || [];
+
+  const selfId = state.session.user.id;
+  const unreadIds = state.messages.filter(m => m.sender_id !== selfId && !m.read_at).map(m => m.id);
+  if(unreadIds.length){
+    const nowIso = new Date().toISOString();
+    await sb.from('messages').update({ read_at: nowIso }).in('id', unreadIds);
+    state.messages.forEach(m => { if(unreadIds.includes(m.id)) m.read_at = nowIso; });
+  }
+  await loadUnreadTotal();
+  if(isEditor()) await loadThreads();
+}
+
+function selectThread(contributorId){
+  state.selectedThreadId = contributorId;
+  render();
+  loadThread(contributorId).then(render);
+}
+
+function messageUser(contributorId){
+  state.view = 'messages';
+  loadThreads().then(() => selectThread(contributorId));
+}
+
+function clearThreadSelection(){
+  state.selectedThreadId = null;
+  render();
+}
+
+async function sendMessage(){
+  if(!state.session) return;
+  const body = (state.messageDraft || "").trim();
+  if(!body) return;
+
+  const selfId = state.session.user.id;
+  const contributorId = isEditor() ? state.selectedThreadId : selfId;
+  if(!contributorId) return;
+
+  state.messageDraft = "";
+  const { error } = await sb.from('messages').insert({
+    contributor_id: contributorId,
+    sender_id: selfId,
+    body
+  });
+  if(error){
+    state.err = error.message;
+    render();
+    return;
+  }
+  await loadThread(contributorId);
+  render();
+}
+
+function messageThreadHtml(withWhom){
+  const selfId = state.session.user.id;
+  const bubbles = state.messages.length
+    ? state.messages.map(m => `
+        <div class="msg-bubble ${m.sender_id === selfId ? 'mine' : 'theirs'}">
+          <div class="msg-body">${escapeHtml(m.body)}</div>
+          <div class="msg-meta">${fmtDate(m.created_at)}</div>
+        </div>`).join('')
+    : `<p class="hint">No messages yet — say hello.</p>`;
+
+  return `
+    <div class="msg-header">Conversation with ${escapeHtml(withWhom)}</div>
+    <div class="msg-thread" id="msgThread">${bubbles}</div>
+    <div class="msg-composer">
+      <textarea id="messageDraft" placeholder="Write a message...">${escapeHtml(state.messageDraft || '')}</textarea>
+      <button class="btn btn-gold" onclick="sendMessage()">Send</button>
+    </div>`;
+}
+
+function wireMessageComposer(){
+  const ta = document.getElementById('messageDraft');
+  if(ta) ta.oninput = e => state.messageDraft = e.target.value;
+  const threadEl = document.getElementById('msgThread');
+  if(threadEl) threadEl.scrollTop = threadEl.scrollHeight;
+}
+
+function renderMessagesInbox(main){
+  const listBody = state.threads.length
+    ? state.threads.map(t => `
+        <div class="list-row ${t.id === state.selectedThreadId ? 'active' : ''}" onclick="selectThread('${t.id}')">
+          <div class="list-row-title">${escapeHtml(t.name || t.email || '(unknown)')}${t.unread ? `<span class="count" style="margin-left:8px;">${t.unread}</span>` : ''}</div>
+          <div class="list-row-meta">${escapeHtml((t.lastBody || '').slice(0, 60))}${(t.lastBody || '').length > 60 ? '…' : ''} · ${fmtDate(t.lastAt)}</div>
+        </div>`).join('')
+    : `<div class="empty"><div class="glyph">†</div><p>No conversations yet.</p><p>Message a contributor from User Desk to start one.</p></div>`;
+
+  const thread = state.threads.find(t => t.id === state.selectedThreadId) || null;
+  const detailHtml = thread
+    ? `<a class="back-link" onclick="clearThreadSelection();return false;" href="#">← Back to inbox</a>${messageThreadHtml(thread.name || thread.email)}`
+    : `<div class="detail-empty"><div class="glyph">†</div><p>Select a conversation on the left.</p></div>`;
+
+  main.innerHTML = `
+    <div class="split ${state.selectedThreadId ? 'has-selection' : ''}">
+      <div class="split-list">${listBody}</div>
+      <div class="split-detail">${detailHtml}</div>
+    </div>`;
+
+  wireMessageComposer();
+}
+
+function renderMyThread(main){
+  main.innerHTML = `
+    <div class="scroll-panel"><div class="narrow">
+      ${messageThreadHtml('the editor')}
+    </div></div>`;
+  wireMessageComposer();
 }
 
 function stampHtml(status){
@@ -1461,7 +1643,8 @@ function renderNav(){
   const tabs = [
     {id:'feed', label:`Feed (${feedCount})`},
     {id:'submit', label:'Submit'},
-    {id:'desk', label:'My desk'}
+    {id:'desk', label:'My desk'},
+    {id:'messages', label:'Messages', count: state.unreadTotal}
   ];
   if(admin){
     tabs.push({id:'review', label:'Review desk', count: pendingCount});
@@ -1484,9 +1667,17 @@ function setView(v){
   state.selectedId = null;
   state.err = "";
   state.suspendMenuFor = null;
+  state.selectedThreadId = null;
   render();
   if(v === 'users' && isEditor()){
     loadUsers().then(render);
+  }
+  if(v === 'messages' && state.session){
+    if(isEditor()){
+      loadThreads().then(render);
+    } else {
+      loadThread(state.session.user.id).then(render);
+    }
   }
 }
 
@@ -1598,6 +1789,19 @@ function renderMain(){
     return;
   }
 
+  if(state.view === 'messages'){
+    if(!state.session || !displayName()){
+      main.innerHTML = `<div class="scroll-panel"><div class="narrow"><div class="locked-msg"><div class="glyph">†</div><p>Sign in to view messages.</p></div></div></div>`;
+      return;
+    }
+    if(isEditor()){
+      renderMessagesInbox(main);
+    } else {
+      renderMyThread(main);
+    }
+    return;
+  }
+
   if(state.view === 'users'){
     if(!isEditor()){
       main.innerHTML = `<div class="scroll-panel"><div class="narrow"><div class="locked-msg"><div class="glyph">†</div><p>This desk is for the editor only.</p></div></div></div>`;
@@ -1620,6 +1824,7 @@ async function init(){
   state.session = session;
   await loadOwnProfile();
   await loadArticles();
+  await loadUnreadTotal();
   openArticleFromHash();
   render();
 
@@ -1630,6 +1835,7 @@ async function init(){
     state.magicLinkSent = false;
     await loadOwnProfile();
     await loadArticles();
+    await loadUnreadTotal();
     render();
     if(state.view === 'feed' && state.selectedId){
       await loadArticleExtras(state.selectedId);
@@ -1639,6 +1845,21 @@ async function init(){
   sb.channel('articles-changes')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'articles' }, async () => {
       await loadArticles();
+      render();
+    })
+    .subscribe();
+
+  sb.channel('messages-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, async () => {
+      await loadUnreadTotal();
+      if(state.view === 'messages' && state.session){
+        if(isEditor()){
+          await loadThreads();
+          if(state.selectedThreadId) await loadThread(state.selectedThreadId);
+        } else {
+          await loadThread(state.session.user.id);
+        }
+      }
       render();
     })
     .subscribe();
