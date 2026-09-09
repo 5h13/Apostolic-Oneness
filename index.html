@@ -100,7 +100,7 @@
   .detail-empty{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:18px;color:var(--slate);text-align:center;overflow-y:auto;}
   .welcome-message{max-width:560px;line-height:1.7;color:var(--slate);text-align:left;}
   .welcome-heading{margin:0 0 10px;color:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;}
-  .welcome-copy{margin:0 0 14px;}
+  .welcome-copy{margin:0 0 14px;color:var(--paper);}
   .feed-tools{padding:14px 16px;border-bottom:1px solid var(--ink-line);background:var(--ink-900);display:flex;align-items:center;gap:8px;}
   .feed-search-wrap{flex:1 1 auto;}
   .feed-search{width:100%;background:var(--ink-800);border:1px solid var(--ink-line);border-radius:8px;padding:10px 12px;color:var(--paper);font-size:13px;font-family:'Inter',sans-serif;outline:none;}
@@ -173,6 +173,21 @@
   .panel label{display:block;font-family:'IBM Plex Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--slate);margin-bottom:6px;}
   .field{margin-bottom:18px;}
   .field input[type=text]{width:100%;font-size:15px;padding:10px 12px;}
+  .field-row{display:flex;gap:16px;flex-wrap:wrap;}
+  .field-row .field{flex:1;min-width:180px;}
+  .field select{width:100%;background:var(--ink-900);border:1px solid var(--ink-line);color:var(--paper);border-radius:6px;padding:10px 12px;font-family:'Inter',sans-serif;font-size:14px;outline:none;}
+  .field select:focus{border-color:var(--gold);}
+  .submit-intro{padding:16px 20px;margin-bottom:16px;border-left:2px solid var(--gold);background:var(--ink-800);border-radius:0 8px 8px 0;}
+  .category-tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+  .category-tag{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--gold);border:1px solid var(--ink-line);border-radius:20px;padding:3px 10px;}
+  .category-tag-sub{color:var(--slate);}
+  .feed-filters{display:flex;gap:8px;padding:0 16px 12px;flex-wrap:wrap;border-bottom:1px solid var(--ink-line);background:var(--ink-900);}
+  .filter-select{background:var(--ink-800);border:1px solid var(--ink-line);color:var(--paper);border-radius:6px;padding:6px 8px;font-family:'Inter',sans-serif;font-size:12px;flex:1;min-width:110px;}
+  .row{display:flex;}
+  .category-pill-list{display:flex;flex-wrap:wrap;gap:8px;}
+  .category-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;background:var(--ink-800);border:1px solid var(--ink-line);border-radius:20px;padding:5px 6px 5px 12px;}
+  .category-pill-remove{color:var(--rust);text-decoration:none;font-size:15px;line-height:1;padding:0 6px;}
+  .category-pill-remove:hover{color:var(--paper);}
   textarea{width:100%;min-height:220px;resize:vertical;background:var(--ink-900);border:1px solid var(--ink-line);color:var(--paper);border-radius:6px;padding:12px;font-family:'Inter',sans-serif;font-size:15px;line-height:1.6;outline:none;}
   textarea:focus{border-color:var(--gold);}
   .submit-row{display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:16px;flex-wrap:wrap;}
@@ -261,7 +276,15 @@ let state = {
   threadsLoaded: false,
   selectedThreadId: null,
   messageDraft: "",
-  unreadTotal: 0
+  unreadTotal: 0,
+  categories: [],
+  subcategories: [],
+  categoriesLoaded: false,
+  categoryFilter: "",
+  subcategoryFilter: "",
+  authorFilter: "",
+  submitCategoryId: "",
+  submitSubcategoryId: ""
 };
 
 function isEditor(){
@@ -533,9 +556,13 @@ async function saveDraft(){
     return;
   }
   state.err = "";
+  const categoryPatch = {
+    category_id: state.submitCategoryId || null,
+    subcategory_id: state.submitSubcategoryId || null
+  };
   if(state.editingArticleId){
     const { error } = await sb.from('articles')
-      .update({ title, body })
+      .update({ title, body, ...categoryPatch })
       .eq('id', state.editingArticleId);
     if(error){
       state.err = error.message;
@@ -549,7 +576,8 @@ async function saveDraft(){
         body,
         author_email: state.session.user.email,
         author_name: displayName(),
-        status: 'draft'
+        status: 'draft',
+        ...categoryPatch
       })
       .select()
       .single();
@@ -569,6 +597,8 @@ function newSubmission(){
   state.editingArticleId = null;
   state.submitTitle = "";
   state.submitBody = "";
+  state.submitCategoryId = "";
+  state.submitSubcategoryId = "";
   state.draftSaved = false;
   state.err = "";
   render();
@@ -580,6 +610,8 @@ function editDraft(id){
   state.editingArticleId = id;
   state.submitTitle = a.title;
   state.submitBody = a.body;
+  state.submitCategoryId = a.category_id || "";
+  state.submitSubcategoryId = a.subcategory_id || "";
   state.draftSaved = false;
   state.selectedId = null;
   state.err = "";
@@ -612,9 +644,13 @@ async function submitArticle(){
     return;
   }
   state.err = "";
+  const categoryPatch = {
+    category_id: state.submitCategoryId || null,
+    subcategory_id: state.submitSubcategoryId || null
+  };
   let error;
   if(state.editingArticleId){
-    const patch = { title, body, status: isEditor() ? 'approved' : 'pending' };
+    const patch = { title, body, status: isEditor() ? 'approved' : 'pending', ...categoryPatch };
     if(isEditor()) patch.approved_at = new Date().toISOString();
     ({ error } = await sb.from('articles').update(patch).eq('id', state.editingArticleId));
   } else {
@@ -622,7 +658,8 @@ async function submitArticle(){
       title,
       body,
       author_email: state.session.user.email,
-      author_name: displayName()
+      author_name: displayName(),
+      ...categoryPatch
     }));
   }
   if(error){
@@ -632,6 +669,8 @@ async function submitArticle(){
   }
   state.submitTitle = "";
   state.submitBody = "";
+  state.submitCategoryId = "";
+  state.submitSubcategoryId = "";
   state.editingArticleId = null;
   state.draftSaved = false;
   state.selectedId = null;
@@ -649,7 +688,12 @@ async function saveArticleEdit(){
     return;
   }
   state.err = "";
-  const { error } = await sb.from('articles').update({ title, body }).eq('id', state.editingArticleId);
+  const { error } = await sb.from('articles').update({
+    title,
+    body,
+    category_id: state.submitCategoryId || null,
+    subcategory_id: state.submitSubcategoryId || null
+  }).eq('id', state.editingArticleId);
   if(error){
     state.err = error.message;
     render();
@@ -657,6 +701,8 @@ async function saveArticleEdit(){
   }
   state.submitTitle = "";
   state.submitBody = "";
+  state.submitCategoryId = "";
+  state.submitSubcategoryId = "";
   state.editingArticleId = null;
   state.draftSaved = false;
   state.selectedId = null;
@@ -812,6 +858,17 @@ function renderUsersDashboard(main){
       </tr>`).join('')
     : `<tr><td colspan="4" class="hint" style="text-align:center;padding:24px 0;">No users match.</td></tr>`;
 
+  const categoryPillHtml = (c) => `
+    <span class="category-pill">
+      ${escapeHtml(c.name)}
+      <a href="javascript:void(0)" onclick="deleteCategory('${c.id}')" title="Remove category" class="category-pill-remove">×</a>
+    </span>`;
+  const subcategoryPillHtml = (s) => `
+    <span class="category-pill">
+      ${escapeHtml(s.name)}
+      <a href="javascript:void(0)" onclick="deleteSubcategory('${s.id}')" title="Remove topic" class="category-pill-remove">×</a>
+    </span>`;
+
   main.innerHTML = `
     <div class="scroll-panel"><div class="narrow">
 
@@ -844,10 +901,33 @@ function renderUsersDashboard(main){
         </table>
       </div>
 
+      <div class="panel" style="margin-top:20px;">
+        <div class="field-note" style="margin-bottom:10px;text-transform:uppercase;letter-spacing:0.08em;">Categories</div>
+        <div class="category-pill-list">
+          ${state.categories.length ? state.categories.map(categoryPillHtml).join('') : `<span class="hint">None yet.</span>`}
+        </div>
+        <div class="row" style="margin-top:12px;gap:8px;">
+          <input type="text" id="newCategoryName" placeholder="New category, e.g. Apologetics" style="flex:1;">
+          <button class="btn btn-ghost btn-small" onclick="addCategory()">Add</button>
+        </div>
+
+        <div class="field-note" style="margin:20px 0 10px;text-transform:uppercase;letter-spacing:0.08em;">Topics (subcategories)</div>
+        <div class="category-pill-list">
+          ${state.subcategories.length ? state.subcategories.map(subcategoryPillHtml).join('') : `<span class="hint">None yet.</span>`}
+        </div>
+        <div class="row" style="margin-top:12px;gap:8px;">
+          <input type="text" id="newSubcategoryName" placeholder="New topic, e.g. Prayer & Fasting" style="flex:1;">
+          <button class="btn btn-ghost btn-small" onclick="addSubcategory()">Add</button>
+        </div>
+        <div class="hint" style="text-align:left;margin-top:12px;">These power the Category/Topic dropdowns on Submit and the filters on the Feed — add as many as you like, any time, from right here.</div>
+      </div>
+
     </div></div>`;
 
   document.getElementById('userSearch').oninput = e => { state.userSearchTerm = e.target.value; renderUsersDashboard(main); };
   document.getElementById('userStatusFilter').onchange = e => { state.userStatusFilter = e.target.value; renderUsersDashboard(main); };
+  document.getElementById('newCategoryName').onkeydown = e => { if(e.key==='Enter') addCategory(); };
+  document.getElementById('newSubcategoryName').onkeydown = e => { if(e.key==='Enter') addSubcategory(); };
 }
 
 // ===== Internal messaging (editor <-> contributor, one thread each) =====
@@ -1373,24 +1453,38 @@ function renderSplit(main, items, opts){
     : `<div class="empty"><div class="glyph">†</div><p>${opts.emptyTitle}</p>${opts.emptySub ? `<p>${opts.emptySub}</p>` : ''}</div>`;
 
   const selected = items.find(a => a.id === state.selectedId) || null;
-  const detailHtml = selected
-    ? `<a class="back-link" onclick="clearSelection();return false;" href="#">← Back to list</a>${opts.detailHtml(selected)}`
-    : `<div class="detail-empty"><div class="glyph">†</div><div class="welcome-message">
+  const defaultWelcome = `
         <p class="welcome-heading">The Flint<br>Welcome message</p>
         <p class="welcome-copy">The Flint is an apostolic oneness articles‑of‑faith publishing site dedicated to proclaiming the revelation of the One God. This platform exists to strengthen believers, equip ministers, and preserve the doctrine handed down by the apostles. Every article published here aims to uphold biblical truth with clarity, conviction, and reverence.</p>
         <p class="welcome-copy">At the heart of our faith is the declaration that Jesus Christ is the one God manifest in the flesh. He is the fullness of the Godhead bodily, the visible image of the invisible God, the Father revealed to humanity through the Son. This site stands firmly upon that foundation and invites all who share this conviction to contribute to the growing library of teaching, study, and proclamation.</p>
         <p class="welcome-copy">Oneness believers may create an account to submit their articles. All submissions are reviewed and approved by the editor before publication. Only articles that uphold apostolic doctrine and sound biblical teaching will be published.</p>
         <p class="welcome-copy">The Flint is also a community. Readers can react to articles, leave comments, and share teachings across social media platforms. Every article becomes a conversation — a place where believers can encourage one another, ask questions, and grow deeper in the truth of the One God.</p>
         <p class="welcome-copy">As you explore the articles on the left, may every page deepen your understanding of Jesus Christ, our Lord and Savior, and strengthen your walk in the apostolic faith.</p>
-        <p class="welcome-copy" style="margin-bottom:0;">Select an article on the left to begin reading.</p>
-      </div></div>`;
+        <p class="welcome-copy" style="margin-bottom:0;">Select an article on the left to begin reading.</p>`;
+  const detailHtml = selected
+    ? `<a class="back-link" onclick="clearSelection();return false;" href="#">← Back to list</a>${opts.detailHtml(selected)}`
+    : `<div class="detail-empty"><div class="glyph">†</div><div class="welcome-message">${opts.welcomeHtml || defaultWelcome}</div></div>`;
 
   const searchHtml = opts.search ? `
     <div class="feed-tools">
       <div class="feed-search-wrap">
         <input type="search" id="feedSearch" class="feed-search" value="${escapeHtml(state.searchTerm)}" placeholder="Search published articles...">
       </div>
-      <button type="button" id="clearFeedSearch" class="clear-search" ${state.searchTerm ? '' : 'disabled'}>Clear</button>
+      <button type="button" id="clearFeedSearch" class="clear-search" ${(state.searchTerm || state.categoryFilter || state.subcategoryFilter || state.authorFilter) ? '' : 'disabled'}>Clear</button>
+    </div>
+    <div class="feed-filters">
+      <select id="categoryFilter" class="filter-select">
+        <option value="">All categories</option>
+        ${state.categories.map(c => `<option value="${c.id}" ${state.categoryFilter===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
+      </select>
+      <select id="subcategoryFilter" class="filter-select">
+        <option value="">All topics</option>
+        ${state.subcategories.map(s => `<option value="${s.id}" ${state.subcategoryFilter===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}
+      </select>
+      <select id="authorFilter" class="filter-select">
+        <option value="">All authors</option>
+        ${getFeedAuthors().map(n => `<option value="${escapeHtml(n)}" ${state.authorFilter===n?'selected':''}>${escapeHtml(n)}</option>`).join('')}
+      </select>
     </div>` : '';
 
   // Preserve scroll position across re-renders (e.g. posting a comment,
@@ -1437,10 +1531,29 @@ function renderSplit(main, items, opts){
     if(clearFeedSearch){
       clearFeedSearch.addEventListener('click', () => {
         state.searchTerm = '';
+        state.categoryFilter = '';
+        state.subcategoryFilter = '';
+        state.authorFilter = '';
         render();
       });
     }
+
+    const categoryFilterEl = document.getElementById('categoryFilter');
+    if(categoryFilterEl) categoryFilterEl.onchange = e => { state.categoryFilter = e.target.value; render(); };
+
+    const subcategoryFilterEl = document.getElementById('subcategoryFilter');
+    if(subcategoryFilterEl) subcategoryFilterEl.onchange = e => { state.subcategoryFilter = e.target.value; render(); };
+
+    const authorFilterEl = document.getElementById('authorFilter');
+    if(authorFilterEl) authorFilterEl.onchange = e => { state.authorFilter = e.target.value; render(); };
   }
+}
+
+function categoryTagsHtml(a){
+  const cat = a.category_id ? categoryName(a.category_id) : '';
+  const sub = a.subcategory_id ? subcategoryName(a.subcategory_id) : '';
+  if(!cat && !sub) return '';
+  return `<div class="category-tags">${cat ? `<span class="category-tag">${escapeHtml(cat)}</span>` : ''}${sub ? `<span class="category-tag category-tag-sub">${escapeHtml(sub)}</span>` : ''}</div>`;
 }
 
 function feedDetailHtml(a){
@@ -1450,6 +1563,7 @@ function feedDetailHtml(a){
     <article class="detail-article">
       <h2>${escapeHtml(a.title)}</h2>
       <div class="byline"><b>${escapeHtml(a.author_name || a.author_email)}</b> · ${fmtDate(a.created_at)}</div>
+      ${categoryTagsHtml(a)}
       <div class="body-text" style="margin-top:18px;">${escapeHtml(a.body)}</div>
 
       <div id="reaction-bar" class="reaction-bar">
@@ -1495,6 +1609,7 @@ function deskDetailHtml(a){
       <article class="detail-article">
         <h2>${escapeHtml(a.title || "(untitled draft)")}</h2>
         <div class="byline">Draft · started ${fmtDate(a.created_at)}</div>
+        ${categoryTagsHtml(a)}
         <div class="body-text" style="margin-top:18px;">${a.body ? escapeHtml(a.body) : '<em>No text yet.</em>'}</div>
         <div class="article-actions">
           <button class="btn btn-gold btn-small" onclick="editDraft('${a.id}')">Continue editing</button>
@@ -1509,6 +1624,7 @@ function deskDetailHtml(a){
         ${stampHtml(a.status)}
       </div>
       <div class="byline">${fmtDate(a.created_at)}</div>
+      ${categoryTagsHtml(a)}
       <div class="body-text" style="margin-top:18px;">${escapeHtml(a.body)}</div>
     </article>`;
 }
@@ -1532,6 +1648,7 @@ function reviewDetailHtml(a){
         ${stampHtml(a.status)}
       </div>
       <div class="byline"><b>${escapeHtml(a.author_name || a.author_email)}</b> · ${fmtDate(a.created_at)}</div>
+      ${categoryTagsHtml(a)}
       <div class="body-text" style="margin-top:18px;">${escapeHtml(a.body)}</div>
       ${actions}
     </article>`;
@@ -1639,10 +1756,21 @@ function renderAuthBox(){
 }
 
 function getFilteredPublishedArticles(){
-  const approved = state.articles.filter(a => a.status === 'approved');
+  let list = state.articles.filter(a => a.status === 'approved');
+
+  if(state.categoryFilter){
+    list = list.filter(a => a.category_id === state.categoryFilter);
+  }
+  if(state.subcategoryFilter){
+    list = list.filter(a => a.subcategory_id === state.subcategoryFilter);
+  }
+  if(state.authorFilter){
+    list = list.filter(a => (a.author_name || a.author_email) === state.authorFilter);
+  }
+
   const q = state.searchTerm.trim().toLowerCase();
-  if(!q) return approved;
-  return approved.filter(a => {
+  if(!q) return list;
+  return list.filter(a => {
     const haystack = [
       a.title,
       a.author_name,
@@ -1651,6 +1779,63 @@ function getFilteredPublishedArticles(){
     ].join(' ').toLowerCase();
     return haystack.includes(q);
   });
+}
+
+function getFeedAuthors(){
+  const names = new Set();
+  state.articles.filter(a => a.status === 'approved').forEach(a => {
+    const n = a.author_name || a.author_email;
+    if(n) names.add(n);
+  });
+  return Array.from(names).sort((a, b) => a.localeCompare(b));
+}
+
+function categoryName(id){
+  const c = state.categories.find(x => x.id === id);
+  return c ? c.name : '';
+}
+function subcategoryName(id){
+  const s = state.subcategories.find(x => x.id === id);
+  return s ? s.name : '';
+}
+
+async function loadCategories(){
+  const [{ data: cats, error: catErr }, { data: subs, error: subErr }] = await Promise.all([
+    sb.from('categories').select('*').order('sort_order', { ascending: true }),
+    sb.from('subcategories').select('*').order('sort_order', { ascending: true })
+  ]);
+  if(!catErr) state.categories = cats || [];
+  if(!subErr) state.subcategories = subs || [];
+  state.categoriesLoaded = true;
+}
+
+async function addCategory(){
+  const name = (document.getElementById('newCategoryName').value || '').trim();
+  if(!name) return;
+  const { error } = await sb.from('categories').insert({ name, sort_order: state.categories.length });
+  if(error){ state.err = error.message; }
+  await loadCategories();
+  render();
+}
+async function deleteCategory(id){
+  const { error } = await sb.from('categories').delete().eq('id', id);
+  if(error){ state.err = error.message; }
+  await loadCategories();
+  render();
+}
+async function addSubcategory(){
+  const name = (document.getElementById('newSubcategoryName').value || '').trim();
+  if(!name) return;
+  const { error } = await sb.from('subcategories').insert({ name, sort_order: state.subcategories.length });
+  if(error){ state.err = error.message; }
+  await loadCategories();
+  render();
+}
+async function deleteSubcategory(id){
+  const { error } = await sb.from('subcategories').delete().eq('id', id);
+  if(error){ state.err = error.message; }
+  await loadCategories();
+  render();
 }
 
 function renderNav(){
@@ -1690,6 +1875,8 @@ function setView(v){
     state.editingArticleId = null;
     state.submitTitle = "";
     state.submitBody = "";
+    state.submitCategoryId = "";
+    state.submitSubcategoryId = "";
     state.draftSaved = false;
   }
   state.view = v;
@@ -1728,10 +1915,11 @@ function renderMain(){
   if(state.view === 'feed'){
     const q = state.searchTerm.trim().toLowerCase();
     const filtered = getFilteredPublishedArticles();
+    const filtersActive = !!(q || state.categoryFilter || state.subcategoryFilter || state.authorFilter);
 
     renderSplit(main, filtered, {
-      emptyTitle: q ? "No published articles match your search." : "No articles published yet.",
-      emptySub: q ? "Try another keyword, author name, or phrase." : "The first approved article of faith will appear here.",
+      emptyTitle: filtersActive ? "No published articles match your filters." : "No articles published yet.",
+      emptySub: filtersActive ? "Try clearing a filter or a different keyword." : "The first approved article of faith will appear here.",
       rowHtml: (a, active) => listRowHtml(a, active),
       detailHtml: feedDetailHtml,
       search: true
@@ -1762,6 +1950,11 @@ function renderMain(){
     const editingLive = editingArticle && editingArticle.status !== 'draft';
     main.innerHTML = `
       <div class="scroll-panel"><div class="narrow">
+      ${!state.editingArticleId ? `
+      <div class="submit-intro">
+        <p class="welcome-copy" style="margin-bottom:8px;">Write from conviction, cite Scripture where you can, and keep the focus on the truth being taught rather than on any one personality or ministry.</p>
+        <p class="welcome-copy" style="margin-bottom:0;">Picking a category and topic below helps readers find your piece through the Feed's filters — it's optional, but recommended. You can save a draft any time and come back to finish it later from My Desk.</p>
+      </div>` : ''}
       <div class="panel">
         ${state.editingArticleId
           ? (editingLive
@@ -1776,6 +1969,22 @@ function renderMain(){
           <label>Article</label>
           <textarea id="submitBody" placeholder="Write the piece here.">${escapeHtml(state.submitBody)}</textarea>
         </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Category</label>
+            <select id="submitCategory">
+              <option value="">— None —</option>
+              ${state.categories.map(c => `<option value="${c.id}" ${state.submitCategoryId===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field">
+            <label>Topic</label>
+            <select id="submitSubcategory">
+              <option value="">— None —</option>
+              ${state.subcategories.map(s => `<option value="${s.id}" ${state.submitSubcategoryId===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}
+            </select>
+          </div>
+        </div>
         <div class="submit-row">
           <div class="field-note">${editingLive ? "Saves in place — no re-approval needed." : (isEditor() ? "Publishes immediately — you're the editor." : "Goes to the editor for approval before it's published.")}</div>
           <div style="display:flex;gap:8px;">
@@ -1789,6 +1998,8 @@ function renderMain(){
       </div></div>`;
     document.getElementById('submitTitle').oninput = e => { state.submitTitle = e.target.value; state.draftSaved = false; };
     document.getElementById('submitBody').oninput = e => { state.submitBody = e.target.value; state.draftSaved = false; };
+    document.getElementById('submitCategory').onchange = e => { state.submitCategoryId = e.target.value; state.draftSaved = false; };
+    document.getElementById('submitSubcategory').onchange = e => { state.submitSubcategoryId = e.target.value; state.draftSaved = false; };
     return;
   }
 
@@ -1798,7 +2009,12 @@ function renderMain(){
       emptyTitle: "Nothing submitted yet.",
       emptySub: "Head to Submit to write your first article of faith.",
       rowHtml: (a, active) => listRowHtml(a, active, stampMini(a.status) + ' · '),
-      detailHtml: deskDetailHtml
+      detailHtml: deskDetailHtml,
+      welcomeHtml: `
+        <p class="welcome-heading">My Desk</p>
+        <p class="welcome-copy">This is your personal writing desk — every article you've submitted lives here, whatever its stage: saved drafts only you can see, pieces waiting on the editor's review, published articles, and anything that was sent back with notes.</p>
+        <p class="welcome-copy">Select any piece on the left to read it, check its status, or make edits. Drafts can be edited freely before you submit them; once something is live, edits save in place without needing re-approval.</p>
+        <p class="welcome-copy" style="margin-bottom:0;">Ready to start something new? Head to the Submit tab.</p>`
     });
     return;
   }
@@ -1813,7 +2029,12 @@ function renderMain(){
     renderSplit(main, [...pending, ...published], {
       emptyTitle: "Nothing to review yet.",
       rowHtml: (a, active) => listRowHtml(a, active, stampMini(a.status) + ' · '),
-      detailHtml: reviewDetailHtml
+      detailHtml: reviewDetailHtml,
+      welcomeHtml: `
+        <p class="welcome-heading">Review Desk</p>
+        <p class="welcome-copy">This is your editorial queue. Every article waiting on a decision, plus everything already published, shows up on the left — pending pieces first, so nothing sits unreviewed for long.</p>
+        <p class="welcome-copy">Select a piece to read it in full, then approve, decline, or edit it directly before publishing. Approving makes it public on the Feed immediately; declining sends it back to the contributor's desk with the piece marked as declined.</p>
+        <p class="welcome-copy" style="margin-bottom:0;">Managing contributors instead? That's over in User Desk.</p>`
     });
     return;
   }
@@ -1854,6 +2075,7 @@ async function init(){
   await loadOwnProfile();
   await loadArticles();
   await loadUnreadTotal();
+  await loadCategories();
   openArticleFromHash();
   render();
 
