@@ -88,6 +88,7 @@
   .split-list{width:340px;flex:0 0 340px;overflow-y:auto;min-height:0;border-right:1px solid var(--ink-line);}
   .split-detail{flex:1 1 auto;overflow-y:auto;min-height:0;padding:28px 40px 60px;}
   .list-row{padding:14px 20px;border-bottom:1px solid var(--ink-line);cursor:pointer;border-left:3px solid transparent;}
+  .list-group-header{position:sticky;top:0;z-index:1;background:var(--ink-900);border-bottom:1px solid var(--ink-line);padding:8px 20px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--slate);}
   .list-row:hover{background:var(--ink-800);}
   .list-row.active{background:var(--ink-800);border-left-color:var(--gold);}
   .list-row-title{font-family:'Fraunces',serif;font-size:15px;font-weight:600;line-height:1.3;margin-bottom:5px;}
@@ -1448,9 +1449,31 @@ function listRowHtml(a, active, statusTag){
 }
 
 function renderSplit(main, items, opts){
-  const listBody = items.length
-    ? items.map(a => opts.rowHtml(a, a.id === state.selectedId)).join('')
-    : `<div class="empty"><div class="glyph">†</div><p>${opts.emptyTitle}</p>${opts.emptySub ? `<p>${opts.emptySub}</p>` : ''}</div>`;
+  let listBody;
+  if(opts.groupBy){
+    const groups = new Map();
+    items.forEach(a => {
+      const key = opts.groupBy(a);
+      if(!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(a);
+    });
+    const order = opts.groupOrder || Array.from(groups.keys());
+    listBody = order
+      .filter(k => groups.has(k) && groups.get(k).length)
+      .map(k => {
+        const groupItems = groups.get(k);
+        const label = (opts.groupLabels && opts.groupLabels[k]) || k;
+        return `<div class="list-group-header">${escapeHtml(label)} (${groupItems.length})</div>` +
+          groupItems.map(a => opts.rowHtml(a, a.id === state.selectedId)).join('');
+      }).join('');
+    if(!listBody){
+      listBody = `<div class="empty"><div class="glyph">†</div><p>${opts.emptyTitle}</p>${opts.emptySub ? `<p>${opts.emptySub}</p>` : ''}</div>`;
+    }
+  } else {
+    listBody = items.length
+      ? items.map(a => opts.rowHtml(a, a.id === state.selectedId)).join('')
+      : `<div class="empty"><div class="glyph">†</div><p>${opts.emptyTitle}</p>${opts.emptySub ? `<p>${opts.emptySub}</p>` : ''}</div>`;
+  }
 
   const selected = items.find(a => a.id === state.selectedId) || null;
   const defaultWelcome = `
@@ -2008,8 +2031,11 @@ function renderMain(){
     renderSplit(main, mine, {
       emptyTitle: "Nothing submitted yet.",
       emptySub: "Head to Submit to write your first article of faith.",
-      rowHtml: (a, active) => listRowHtml(a, active, stampMini(a.status) + ' · '),
+      rowHtml: (a, active) => listRowHtml(a, active),
       detailHtml: deskDetailHtml,
+      groupBy: a => a.status,
+      groupOrder: ['draft', 'pending', 'approved', 'rejected'],
+      groupLabels: { draft: 'Drafts', pending: 'Under Review', approved: 'Published', rejected: 'Declined' },
       welcomeHtml: `
         <p class="welcome-heading">My Desk</p>
         <p class="welcome-copy">This is your personal writing desk — every article you've submitted lives here, whatever its stage: saved drafts only you can see, pieces waiting on the editor's review, published articles, and anything that was sent back with notes.</p>
@@ -2028,8 +2054,11 @@ function renderMain(){
     const published = state.articles.filter(a => a.status === 'approved');
     renderSplit(main, [...pending, ...published], {
       emptyTitle: "Nothing to review yet.",
-      rowHtml: (a, active) => listRowHtml(a, active, stampMini(a.status) + ' · '),
+      rowHtml: (a, active) => listRowHtml(a, active),
       detailHtml: reviewDetailHtml,
+      groupBy: a => a.status,
+      groupOrder: ['pending', 'approved'],
+      groupLabels: { pending: 'For Review', approved: 'Published' },
       welcomeHtml: `
         <p class="welcome-heading">Review Desk</p>
         <p class="welcome-copy">This is your editorial queue. Every article waiting on a decision, plus everything already published, shows up on the left — pending pieces first, so nothing sits unreviewed for long.</p>
