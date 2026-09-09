@@ -87,7 +87,6 @@ function pageHtml(a) {
 <meta name="twitter:description" content="${desc}">
 
 <link rel="canonical" href="${canonicalUrl}">
-<meta http-equiv="refresh" content="0; url=${redirectUrl}">
 <script>location.replace(${JSON.stringify(redirectUrl)});</script>
 <style>
   body{background:#111;color:#ddd;font-family:Georgia,serif;max-width:640px;margin:60px auto;padding:0 20px;line-height:1.6;}
