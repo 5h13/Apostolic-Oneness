@@ -243,9 +243,6 @@ function accountLocked(){
 }
 function lockedMessage(){
   if(!state.profile) return "";
-  if(state.profile.status === 'blocked'){
-    return "Your account has been blocked by the editor. You can still read published articles, but you can't submit, comment, or react.";
-  }
   if(state.profile.status === 'suspended'){
     const until = state.profile.suspended_until
       ? ` until ${fmtDate(state.profile.suspended_until)}`
@@ -253,19 +250,6 @@ function lockedMessage(){
     return `Your account is suspended${until}. You can still read published articles, but you can't submit, comment, or react.`;
   }
   return "";
-}
-
-// Decode the JWT's issued-at time (no signature check needed — this is
-// only used to detect a same-session "revoke", real security is RLS).
-function sessionIssuedAtEpoch(session){
-  try {
-    const token = session && session.access_token;
-    if(!token) return null;
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return payload.iat || null;
-  } catch(e){
-    return null;
-  }
 }
 
 async function loadOwnProfile(){
@@ -285,19 +269,18 @@ async function loadOwnProfile(){
   }
   state.profile = data;
 
-  // "Revoke access" sets force_logout_at. If that's newer than the
-  // token this browser is currently holding, the editor revoked this
-  // session specifically — sign out once. Signing back in issues a
-  // fresh token, so this won't re-trigger on their next visit.
-  if(data.force_logout_at){
-    const issuedAt = sessionIssuedAtEpoch(state.session);
-    const revokedAt = Math.floor(new Date(data.force_logout_at).getTime() / 1000);
-    if(issuedAt && revokedAt > issuedAt){
-      await sb.auth.signOut();
-      state.session = null;
-      state.profile = null;
-      state.err = "Your access was revoked — please sign in again.";
-    }
+  // Revoked accounts ("blocked" in the DB) are force-signed-out on
+  // every load, not just once. Since a static site with only the anon
+  // key can't stop the sign-in call itself (that needs the service-role
+  // Admin API), this is the closest equivalent to "can no longer sign
+  // in": Supabase issues them a session, and we immediately kill it
+  // again before they can do anything with it, every single time,
+  // until an editor reinstates them.
+  if(data.status === 'blocked'){
+    await sb.auth.signOut();
+    state.session = null;
+    state.profile = null;
+    state.err = "Your access has been revoked by the editor.";
   }
 }
 
@@ -703,19 +686,9 @@ async function suspendUser(userId, hours){
   render();
 }
 
-async function blockUser(userId){
-  const { error } = await sb.from('profiles')
-    .update({ status: 'blocked', suspended_until: null })
-    .eq('id', userId);
-  if(error){ state.err = error.message; }
-  state.suspendMenuFor = null;
-  await loadUsers();
-  render();
-}
-
 async function reinstateUser(userId){
   const { error } = await sb.from('profiles')
-    .update({ status: 'active', suspended_until: null })
+    .update({ status: 'active', suspended_until: null, force_logout_at: null })
     .eq('id', userId);
   if(error){ state.err = error.message; }
   state.suspendMenuFor = null;
@@ -723,17 +696,24 @@ async function reinstateUser(userId){
   render();
 }
 
+// "Revoke access" — the hard action. Sets status to 'blocked' (kept as
+// the DB value for backward compatibility with existing policies) and
+// stamps force_logout_at so any currently-open session is kicked out
+// immediately. loadOwnProfile() then force-signs-out on every future
+// load while status stays 'blocked' — the closest we can get to
+// "can no longer sign in" without a service-role Admin API.
 async function revokeUser(userId){
   const { error } = await sb.from('profiles')
-    .update({ force_logout_at: new Date().toISOString() })
+    .update({ status: 'blocked', suspended_until: null, force_logout_at: new Date().toISOString() })
     .eq('id', userId);
   if(error){ state.err = error.message; }
   state.suspendMenuFor = null;
+  await loadUsers();
   render();
 }
 
 function userStatusBadge(status){
-  const label = status === 'active' ? 'Active' : status === 'suspended' ? 'Suspended' : 'Blocked';
+  const label = status === 'active' ? 'Active' : status === 'suspended' ? 'Suspended' : 'Revoked';
   const cls = status === 'active' ? 'approved' : status === 'suspended' ? 'pending' : 'rejected';
   return `<span class="stamp-mini ${cls}">${label}</span>`;
 }
@@ -752,9 +732,8 @@ function userActionsHtml(u){
     buttons.push(`<button class="btn btn-ghost btn-small" onclick="toggleSuspendMenu('${u.id}')">Suspend${menuOpen ? ' ▴' : ' ▾'}</button>`);
   }
   if(u.status !== 'blocked'){
-    buttons.push(`<button class="btn btn-rust btn-small" onclick="blockUser('${u.id}')">Block</button>`);
+    buttons.push(`<button class="btn btn-rust btn-small" onclick="revokeUser('${u.id}')" title="Signs them out immediately and blocks sign-in until reinstated">Revoke access</button>`);
   }
-  buttons.push(`<button class="btn btn-ghost btn-small" onclick="revokeUser('${u.id}')" title="Force sign-out on their next request">Revoke access</button>`);
 
   const menu = menuOpen ? `
     <div class="suspend-menu">
@@ -806,7 +785,7 @@ function renderUsersDashboard(main){
         ${stat('Total users', total)}
         ${stat('Active', activeCount)}
         ${stat('Suspended', suspendedCount)}
-        ${stat('Blocked', blockedCount)}
+        ${stat('Revoked', blockedCount)}
         ${stat('Draft articles', draftCount)}
         ${stat('Pending review', pendingCount)}
         ${stat('Published', approvedCount)}
@@ -822,7 +801,7 @@ function renderUsersDashboard(main){
             <option value="all" ${state.userStatusFilter==='all'?'selected':''}>All statuses</option>
             <option value="active" ${state.userStatusFilter==='active'?'selected':''}>Active</option>
             <option value="suspended" ${state.userStatusFilter==='suspended'?'selected':''}>Suspended</option>
-            <option value="blocked" ${state.userStatusFilter==='blocked'?'selected':''}>Blocked</option>
+            <option value="blocked" ${state.userStatusFilter==='blocked'?'selected':''}>Revoked</option>
           </select>
         </div>
         <table class="user-table">
@@ -1210,13 +1189,16 @@ function renderSplit(main, items, opts){
       <button type="button" id="clearFeedSearch" class="clear-search" ${state.searchTerm ? '' : 'disabled'}>Clear</button>
     </div>` : '';
 
-  // Preserve scroll position across re-renders (e.g. posting a comment)
-  // when the same article stays selected — a fresh innerHTML rebuild
-  // otherwise resets the new .split-detail's scrollTop to 0, which
-  // looks like the page jumping back to the top of the article.
+  // Preserve scroll position across re-renders (e.g. posting a comment,
+  // or simply selecting an article) — a fresh innerHTML rebuild resets
+  // scrollTop on any brand-new DOM node, which otherwise looks like the
+  // page jumping back to the top of the article or the list.
   const prevDetail = main.querySelector('.split-detail');
   const prevArticleId = prevDetail ? prevDetail.dataset.articleId : null;
-  const prevScrollTop = prevDetail ? prevDetail.scrollTop : 0;
+  const prevDetailScrollTop = prevDetail ? prevDetail.scrollTop : 0;
+
+  const prevList = main.querySelector('.split-list');
+  const prevListScrollTop = prevList ? prevList.scrollTop : 0;
 
   main.innerHTML = `
     <div class="split ${state.selectedId ? 'has-selection' : ''}">
@@ -1226,8 +1208,10 @@ function renderSplit(main, items, opts){
 
   if(selected && prevArticleId === selected.id){
     const newDetail = main.querySelector('.split-detail');
-    if(newDetail) newDetail.scrollTop = prevScrollTop;
+    if(newDetail) newDetail.scrollTop = prevDetailScrollTop;
   }
+  const newList = main.querySelector('.split-list');
+  if(newList) newList.scrollTop = prevListScrollTop;
 
   if(opts.search){
     const feedSearch = document.getElementById('feedSearch');
