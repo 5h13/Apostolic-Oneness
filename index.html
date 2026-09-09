@@ -89,6 +89,9 @@
   .split-detail{flex:1 1 auto;overflow-y:auto;min-height:0;padding:28px 40px 60px;}
   .list-row{padding:14px 20px;border-bottom:1px solid var(--ink-line);cursor:pointer;border-left:3px solid transparent;}
   .list-group-header{position:sticky;top:0;z-index:1;background:var(--ink-900);border-bottom:1px solid var(--ink-line);padding:8px 20px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--slate);}
+  .list-group-header-clickable{cursor:pointer;}
+  .list-group-header-clickable:hover{color:var(--paper);}
+  .list-group-header.active{color:var(--gold);background:var(--ink-800);}
   .list-row:hover{background:var(--ink-800);}
   .list-row.active{background:var(--ink-800);border-left-color:var(--gold);}
   .list-row-title{font-family:'Fraunces',serif;font-size:15px;font-weight:600;line-height:1.3;margin-bottom:5px;}
@@ -285,7 +288,9 @@ let state = {
   subcategoryFilter: "",
   authorFilter: "",
   submitCategoryId: "",
-  submitSubcategoryId: ""
+  submitSubcategoryId: "",
+  deskGroupFilter: null,
+  reviewGroupFilter: null
 };
 
 function isEditor(){
@@ -1458,13 +1463,18 @@ function renderSplit(main, items, opts){
       groups.get(key).push(a);
     });
     const order = opts.groupOrder || Array.from(groups.keys());
+    const activeGroup = opts.activeGroup || null;
     listBody = order
       .filter(k => groups.has(k) && groups.get(k).length)
       .map(k => {
         const groupItems = groups.get(k);
         const label = (opts.groupLabels && opts.groupLabels[k]) || k;
-        return `<div class="list-group-header">${escapeHtml(label)} (${groupItems.length})</div>` +
-          groupItems.map(a => opts.rowHtml(a, a.id === state.selectedId)).join('');
+        const isActive = activeGroup === k;
+        const showRows = !activeGroup || isActive;
+        const clickAttr = opts.onGroupClick ? ` onclick="${opts.onGroupClick(k)}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${opts.onGroupClick(k)};}" role="button" tabindex="0"` : '';
+        const headerClass = `list-group-header${opts.onGroupClick ? ' list-group-header-clickable' : ''}${isActive ? ' active' : ''}`;
+        return `<div class="${headerClass}"${clickAttr}>${escapeHtml(label)} (${groupItems.length})</div>` +
+          (showRows ? groupItems.map(a => opts.rowHtml(a, a.id === state.selectedId)).join('') : '');
       }).join('');
     if(!listBody){
       listBody = `<div class="empty"><div class="glyph">†</div><p>${opts.emptyTitle}</p>${opts.emptySub ? `<p>${opts.emptySub}</p>` : ''}</div>`;
@@ -1907,6 +1917,8 @@ function setView(v){
   state.err = "";
   state.suspendMenuFor = null;
   state.selectedThreadId = null;
+  state.deskGroupFilter = null;
+  state.reviewGroupFilter = null;
   render();
   if(v === 'users' && isEditor()){
     loadUsers().then(render);
@@ -1918,6 +1930,12 @@ function setView(v){
       loadThread(state.session.user.id).then(render);
     }
   }
+}
+
+function toggleGroupFilter(scope, key){
+  const field = scope + 'GroupFilter';
+  state[field] = state[field] === key ? null : key;
+  render();
 }
 
 function renderBanner(){
@@ -2036,6 +2054,8 @@ function renderMain(){
       groupBy: a => a.status,
       groupOrder: ['draft', 'pending', 'approved', 'rejected'],
       groupLabels: { draft: 'Drafts', pending: 'Under Review', approved: 'Published', rejected: 'Declined' },
+      activeGroup: state.deskGroupFilter,
+      onGroupClick: (k) => `toggleGroupFilter('desk','${k}')`,
       welcomeHtml: `
         <p class="welcome-heading">My Desk</p>
         <p class="welcome-copy">This is your personal writing desk — every article you've submitted lives here, whatever its stage: saved drafts only you can see, pieces waiting on the editor's review, published articles, and anything that was sent back with notes.</p>
@@ -2059,6 +2079,8 @@ function renderMain(){
       groupBy: a => a.status,
       groupOrder: ['pending', 'approved'],
       groupLabels: { pending: 'For Review', approved: 'Published' },
+      activeGroup: state.reviewGroupFilter,
+      onGroupClick: (k) => `toggleGroupFilter('review','${k}')`,
       welcomeHtml: `
         <p class="welcome-heading">Review Desk</p>
         <p class="welcome-copy">This is your editorial queue. Every article waiting on a decision, plus everything already published, shows up on the left — pending pieces first, so nothing sits unreviewed for long.</p>
