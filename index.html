@@ -131,6 +131,21 @@
   .empty .glyph{font-family:'Fraunces',serif;font-size:32px;color:var(--ink-line);margin-bottom:10px;}
   .empty p{margin:4px 0;font-size:14px;}
   .panel{background:var(--ink-800);border:1px solid var(--ink-line);border-radius:10px;padding:24px;}
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+  .stat-card{background:var(--ink-800);border:1px solid var(--ink-line);border-radius:10px;padding:16px;text-align:center;}
+  .stat-value{font-family:'Fraunces',serif;font-size:26px;font-weight:600;color:var(--gold);}
+  .stat-label{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--slate);margin-top:4px;}
+  .user-table{width:100%;border-collapse:collapse;}
+  .user-table th{text-align:left;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--slate);padding:8px 10px;border-bottom:1px solid var(--ink-line);}
+  .user-table td{padding:10px;border-bottom:1px solid var(--ink-line);vertical-align:top;font-size:13px;}
+  .user-actions{display:flex;gap:6px;flex-wrap:wrap;}
+  .suspend-menu{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+  @media (max-width:700px){
+    .stat-grid{grid-template-columns:repeat(2,1fr);}
+    .user-table thead{display:none;}
+    .user-table tr{display:block;border-bottom:1px solid var(--ink-line);padding:10px 0;}
+    .user-table td{display:block;border-bottom:none;padding:4px 0;}
+  }
   .panel label{display:block;font-family:'IBM Plex Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--slate);margin-bottom:6px;}
   .field{margin-bottom:18px;}
   .field input[type=text]{width:100%;font-size:15px;padding:10px 12px;}
@@ -207,12 +222,85 @@ let state = {
   loading: true,
   searchTerm: "",
   replyTargetId: null,
-  replyDrafts: {}
+  replyDrafts: {},
+  profile: null,
+  users: [],
+  usersLoaded: false,
+  userSearchTerm: "",
+  userStatusFilter: "all",
+  suspendMenuFor: null
 };
 
 function isEditor(){
   return !!state.session && state.session.user.email === EDITOR_EMAIL;
 }
+
+// Editors are never locked out by their own moderation actions — avoids
+// a self-suspend/self-block accident bricking the only admin account.
+function accountLocked(){
+  if(isEditor()) return false;
+  return !!state.profile && state.profile.status !== 'active';
+}
+function lockedMessage(){
+  if(!state.profile) return "";
+  if(state.profile.status === 'blocked'){
+    return "Your account has been blocked by the editor. You can still read published articles, but you can't submit, comment, or react.";
+  }
+  if(state.profile.status === 'suspended'){
+    const until = state.profile.suspended_until
+      ? ` until ${fmtDate(state.profile.suspended_until)}`
+      : '';
+    return `Your account is suspended${until}. You can still read published articles, but you can't submit, comment, or react.`;
+  }
+  return "";
+}
+
+// Decode the JWT's issued-at time (no signature check needed — this is
+// only used to detect a same-session "revoke", real security is RLS).
+function sessionIssuedAtEpoch(session){
+  try {
+    const token = session && session.access_token;
+    if(!token) return null;
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.iat || null;
+  } catch(e){
+    return null;
+  }
+}
+
+async function loadOwnProfile(){
+  if(!state.session){
+    state.profile = null;
+    return;
+  }
+  const { data, error } = await sb
+    .from('profiles')
+    .select('*')
+    .eq('id', state.session.user.id)
+    .maybeSingle();
+
+  if(error || !data){
+    state.profile = null;
+    return;
+  }
+  state.profile = data;
+
+  // "Revoke access" sets force_logout_at. If that's newer than the
+  // token this browser is currently holding, the editor revoked this
+  // session specifically — sign out once. Signing back in issues a
+  // fresh token, so this won't re-trigger on their next visit.
+  if(data.force_logout_at){
+    const issuedAt = sessionIssuedAtEpoch(state.session);
+    const revokedAt = Math.floor(new Date(data.force_logout_at).getTime() / 1000);
+    if(issuedAt && revokedAt > issuedAt){
+      await sb.auth.signOut();
+      state.session = null;
+      state.profile = null;
+      state.err = "Your access was revoked — please sign in again.";
+    }
+  }
+}
+
 function displayName(){
   if(!state.session) return "";
   return state.session.user.user_metadata && state.session.user.user_metadata.full_name || "";
@@ -371,6 +459,10 @@ async function saveName(){
     state.err = error.message;
   } else {
     await sb.auth.refreshSession();
+    if(state.session){
+      await sb.from('profiles').update({ display_name: name }).eq('id', state.session.user.id);
+      state.profile = { ...(state.profile || {}), display_name: name };
+    }
   }
   render();
 }
@@ -412,6 +504,11 @@ async function loadArticles(){
 }
 
 async function saveDraft(){
+  if(accountLocked()){
+    state.err = lockedMessage();
+    render();
+    return;
+  }
   const title = state.submitTitle.trim();
   const body = state.submitBody.trim();
   if(!title && !body){
@@ -486,6 +583,11 @@ async function deleteDraft(id){
 }
 
 async function submitArticle(){
+  if(accountLocked()){
+    state.err = lockedMessage();
+    render();
+    return;
+  }
   const title = state.submitTitle.trim();
   const body = state.submitBody.trim();
   if(!title || !body){
@@ -557,6 +659,182 @@ async function setStatus(id, status){
   state.selectedId = null;
   await loadArticles();
   render();
+}
+
+// ===== User management dashboard (editor only) =====
+
+async function loadUsers(){
+  if(!isEditor()) return;
+  const { data, error } = await sb
+    .from('profiles')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if(error){
+    state.err = error.message;
+    return;
+  }
+  state.users = data || [];
+  state.usersLoaded = true;
+}
+
+function getFilteredUsers(){
+  const q = state.userSearchTerm.trim().toLowerCase();
+  return state.users.filter(u => {
+    if(state.userStatusFilter !== 'all' && u.status !== state.userStatusFilter) return false;
+    if(!q) return true;
+    const haystack = [u.email, u.display_name].join(' ').toLowerCase();
+    return haystack.includes(q);
+  });
+}
+
+function toggleSuspendMenu(userId){
+  state.suspendMenuFor = state.suspendMenuFor === userId ? null : userId;
+  render();
+}
+
+async function suspendUser(userId, hours){
+  const suspended_until = hours ? new Date(Date.now() + hours * 3600 * 1000).toISOString() : null;
+  const { error } = await sb.from('profiles')
+    .update({ status: 'suspended', suspended_until })
+    .eq('id', userId);
+  if(error){ state.err = error.message; }
+  state.suspendMenuFor = null;
+  await loadUsers();
+  render();
+}
+
+async function blockUser(userId){
+  const { error } = await sb.from('profiles')
+    .update({ status: 'blocked', suspended_until: null })
+    .eq('id', userId);
+  if(error){ state.err = error.message; }
+  state.suspendMenuFor = null;
+  await loadUsers();
+  render();
+}
+
+async function reinstateUser(userId){
+  const { error } = await sb.from('profiles')
+    .update({ status: 'active', suspended_until: null })
+    .eq('id', userId);
+  if(error){ state.err = error.message; }
+  state.suspendMenuFor = null;
+  await loadUsers();
+  render();
+}
+
+async function revokeUser(userId){
+  const { error } = await sb.from('profiles')
+    .update({ force_logout_at: new Date().toISOString() })
+    .eq('id', userId);
+  if(error){ state.err = error.message; }
+  state.suspendMenuFor = null;
+  render();
+}
+
+function userStatusBadge(status){
+  const label = status === 'active' ? 'Active' : status === 'suspended' ? 'Suspended' : 'Blocked';
+  const cls = status === 'active' ? 'approved' : status === 'suspended' ? 'pending' : 'rejected';
+  return `<span class="stamp-mini ${cls}">${label}</span>`;
+}
+
+function userActionsHtml(u){
+  if(u.email === EDITOR_EMAIL){
+    return `<span class="hint" style="margin:0;">You (editor)</span>`;
+  }
+  const menuOpen = state.suspendMenuFor === u.id;
+  const buttons = [];
+
+  if(u.status !== 'active'){
+    buttons.push(`<button class="btn btn-ghost btn-small" onclick="reinstateUser('${u.id}')">Reinstate</button>`);
+  }
+  if(u.status !== 'suspended'){
+    buttons.push(`<button class="btn btn-ghost btn-small" onclick="toggleSuspendMenu('${u.id}')">Suspend${menuOpen ? ' ▴' : ' ▾'}</button>`);
+  }
+  if(u.status !== 'blocked'){
+    buttons.push(`<button class="btn btn-rust btn-small" onclick="blockUser('${u.id}')">Block</button>`);
+  }
+  buttons.push(`<button class="btn btn-ghost btn-small" onclick="revokeUser('${u.id}')" title="Force sign-out on their next request">Revoke access</button>`);
+
+  const menu = menuOpen ? `
+    <div class="suspend-menu">
+      <button class="btn btn-ghost btn-small" onclick="suspendUser('${u.id}', 24)">24 hours</button>
+      <button class="btn btn-ghost btn-small" onclick="suspendUser('${u.id}', 24*7)">7 days</button>
+      <button class="btn btn-ghost btn-small" onclick="suspendUser('${u.id}', 24*30)">30 days</button>
+      <button class="btn btn-ghost btn-small" onclick="suspendUser('${u.id}', null)">Indefinitely</button>
+    </div>` : '';
+
+  return `<div class="user-actions">${buttons.join('')}</div>${menu}`;
+}
+
+function renderUsersDashboard(main){
+  const users = state.users;
+  const total = users.length;
+  const activeCount = users.filter(u => u.status === 'active').length;
+  const suspendedCount = users.filter(u => u.status === 'suspended').length;
+  const blockedCount = users.filter(u => u.status === 'blocked').length;
+
+  const draftCount = state.articles.filter(a => a.status === 'draft').length;
+  const pendingCount = state.articles.filter(a => a.status === 'pending').length;
+  const approvedCount = state.articles.filter(a => a.status === 'approved').length;
+  const rejectedCount = state.articles.filter(a => a.status === 'rejected').length;
+
+  const stat = (label, value) => `
+    <div class="stat-card">
+      <div class="stat-value">${value}</div>
+      <div class="stat-label">${label}</div>
+    </div>`;
+
+  const filtered = getFilteredUsers();
+  const rows = filtered.length
+    ? filtered.map(u => `
+      <tr>
+        <td>
+          <div style="font-weight:500;">${escapeHtml(u.display_name || '(no name yet)')}</div>
+          <div class="hint" style="text-align:left;margin:0;">${escapeHtml(u.email)}</div>
+        </td>
+        <td>${fmtDate(u.created_at)}</td>
+        <td>${userStatusBadge(u.status)}</td>
+        <td>${userActionsHtml(u)}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="4" class="hint" style="text-align:center;padding:24px 0;">No users match.</td></tr>`;
+
+  main.innerHTML = `
+    <div class="scroll-panel"><div class="narrow">
+
+      <div class="stat-grid">
+        ${stat('Total users', total)}
+        ${stat('Active', activeCount)}
+        ${stat('Suspended', suspendedCount)}
+        ${stat('Blocked', blockedCount)}
+        ${stat('Draft articles', draftCount)}
+        ${stat('Pending review', pendingCount)}
+        ${stat('Published', approvedCount)}
+        ${stat('Rejected', rejectedCount)}
+      </div>
+
+      <div class="panel" style="margin-top:20px;">
+        <div class="feed-tools" style="margin-bottom:14px;">
+          <div class="feed-search-wrap" style="flex:1;">
+            <input type="search" id="userSearch" class="feed-search" value="${escapeHtml(state.userSearchTerm)}" placeholder="Search by name or email...">
+          </div>
+          <select id="userStatusFilter" style="background:var(--ink-800);border:1px solid var(--ink-line);color:var(--paper);border-radius:6px;padding:8px 10px;font-family:'Inter',sans-serif;font-size:13px;">
+            <option value="all" ${state.userStatusFilter==='all'?'selected':''}>All statuses</option>
+            <option value="active" ${state.userStatusFilter==='active'?'selected':''}>Active</option>
+            <option value="suspended" ${state.userStatusFilter==='suspended'?'selected':''}>Suspended</option>
+            <option value="blocked" ${state.userStatusFilter==='blocked'?'selected':''}>Blocked</option>
+          </select>
+        </div>
+        <table class="user-table">
+          <thead><tr><th>User</th><th>Joined</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+
+    </div></div>`;
+
+  document.getElementById('userSearch').oninput = e => { state.userSearchTerm = e.target.value; renderUsersDashboard(main); };
+  document.getElementById('userStatusFilter').onchange = e => { state.userStatusFilter = e.target.value; renderUsersDashboard(main); };
 }
 
 function stampHtml(status){
@@ -644,12 +922,14 @@ async function loadArticleExtras(articleId){
   state.comments = commentsRes.data || [];
   render();
   loadReactionCounts(articleId);
+  setupReactionHandlers();
   const { data: { user } } = await sb.auth.getUser();
-  setupReactionHandlers(articleId, user);
   loadUserReaction(articleId, user);
 }
 
 async function loadReactionCounts(articleId) {
+  // NOTE: PostgREST/supabase-js has no .group() aggregate method, so we pull
+  // the raw rows for this article and tally reaction_type counts client-side.
   const { data, error } = await sb
     .from('reactions')
     .select('reaction_type')
@@ -660,50 +940,67 @@ async function loadReactionCounts(articleId) {
     return;
   }
 
-  // Count reactions manually
   const counts = {};
-  data.forEach(r => {
-    counts[r.reaction_type] = (counts[r.reaction_type] || 0) + 1;
+  (data || []).forEach(row => {
+    counts[row.reaction_type] = (counts[row.reaction_type] || 0) + 1;
   });
 
-  // Reset all counts to 0
-  document.querySelectorAll('#reaction-bar .reaction-btn span')
-    .forEach(span => span.textContent = 0);
-
-  // Apply counts
-  Object.entries(counts).forEach(([type, count]) => {
-    const span = document.querySelector(
-      `.reaction-btn[data-type="${type}"] span`
-    );
-    if (span) span.textContent = count;
+  document.querySelectorAll('#reaction-bar .reaction-btn').forEach(btn => {
+    const span = btn.querySelector('span');
+    if (span) span.textContent = counts[btn.dataset.type] || 0;
   });
 }
 
 
+// Delegated handler: bound once, so it keeps working even after the
+// #reaction-bar DOM gets replaced by a re-render (e.g. the realtime
+// 'articles-changes' subscription firing render() for anyone's edit).
+let reactionHandlerBound = false;
+function setupReactionHandlers(){
+  if(reactionHandlerBound) return;
+  reactionHandlerBound = true;
 
-async function setupReactionHandlers(articleId, user){
-  if(!user) return;
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('#reaction-bar .reaction-btn[data-type]');
+    if(!btn) return;
 
-  const buttons = document.querySelectorAll('#reaction-bar .reaction-btn');
-  buttons.forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const reactionType = btn.dataset.type;
-      highlightUserReaction(reactionType);
-      const { error } = await sb
-        .from('reactions')
-        .upsert({
-          article_id: articleId,
-          user_id: user.id,
-          reaction_type: reactionType
-        });
+    const articleId = state.selectedId;
+    if(!articleId) return;
 
-      if(error){
-        console.error('Error saving reaction:', error);
-        return;
-      }
+    if(!state.session){
+      state.err = "Sign in above to react.";
+      render();
+      return;
+    }
 
-      loadReactionCounts(articleId);
-    });
+    if(accountLocked()){
+      state.err = lockedMessage();
+      render();
+      return;
+    }
+
+    const { data: { user } } = await sb.auth.getUser();
+    if(!user) return;
+
+    const reactionType = btn.dataset.type;
+    highlightUserReaction(reactionType);
+
+    const { error } = await sb
+      .from('reactions')
+      .upsert({
+        article_id: articleId,
+        user_id: user.id,
+        reaction_type: reactionType
+      }, { onConflict: 'article_id,user_id' });
+
+    if(error){
+      console.error('Error saving reaction:', error);
+      state.err = "Couldn't save that reaction — try again.";
+      render();
+      return;
+    }
+
+    loadReactionCounts(articleId);
   });
 }
 
@@ -718,14 +1015,14 @@ async function loadUserReaction(articleId, user){
     .select('reaction_type')
     .eq('article_id', articleId)
     .eq('user_id', user.id)
-    .single();
+    .maybeSingle();
 
   if(error){
     highlightUserReaction(null);
     return;
   }
 
-  highlightUserReaction(data.reaction_type);
+  highlightUserReaction(data ? data.reaction_type : null);
 }
 
 function highlightUserReaction(reactionType){
@@ -777,6 +1074,11 @@ async function shareArticle(id){
 async function postComment(articleId){
   if(!state.session){
     state.err = "Sign in above to comment.";
+    render();
+    return;
+  }
+  if(accountLocked()){
+    state.err = lockedMessage();
     render();
     return;
   }
@@ -835,6 +1137,11 @@ function cancelReply(){
 async function postReply(articleId, commentId){
   if(!state.session){
     state.err = "Sign in above to reply.";
+    render();
+    return;
+  }
+  if(accountLocked()){
+    state.err = lockedMessage();
     render();
     return;
   }
@@ -903,11 +1210,24 @@ function renderSplit(main, items, opts){
       <button type="button" id="clearFeedSearch" class="clear-search" ${state.searchTerm ? '' : 'disabled'}>Clear</button>
     </div>` : '';
 
+  // Preserve scroll position across re-renders (e.g. posting a comment)
+  // when the same article stays selected — a fresh innerHTML rebuild
+  // otherwise resets the new .split-detail's scrollTop to 0, which
+  // looks like the page jumping back to the top of the article.
+  const prevDetail = main.querySelector('.split-detail');
+  const prevArticleId = prevDetail ? prevDetail.dataset.articleId : null;
+  const prevScrollTop = prevDetail ? prevDetail.scrollTop : 0;
+
   main.innerHTML = `
     <div class="split ${state.selectedId ? 'has-selection' : ''}">
       <div class="split-list">${searchHtml}${listBody}</div>
-      <div class="split-detail">${detailHtml}</div>
+      <div class="split-detail" data-article-id="${selected ? selected.id : ''}">${detailHtml}</div>
     </div>`;
+
+  if(selected && prevArticleId === selected.id){
+    const newDetail = main.querySelector('.split-detail');
+    if(newDetail) newDetail.scrollTop = prevScrollTop;
+  }
 
   if(opts.search){
     const feedSearch = document.getElementById('feedSearch');
@@ -1159,7 +1479,10 @@ function renderNav(){
     {id:'submit', label:'Submit'},
     {id:'desk', label:'My desk'}
   ];
-  if(admin) tabs.push({id:'review', label:'Review desk', count: pendingCount});
+  if(admin){
+    tabs.push({id:'review', label:'Review desk', count: pendingCount});
+    tabs.push({id:'users', label:'User Desk'});
+  }
   nav.innerHTML = tabs.map(t => `
     <button class="${state.view===t.id?'active':''}" onclick="setView('${t.id}')">
       ${t.label}${t.count ? `<span class="count">${t.count}</span>` : ''}
@@ -1176,16 +1499,23 @@ function setView(v){
   state.view = v;
   state.selectedId = null;
   state.err = "";
+  state.suspendMenuFor = null;
   render();
+  if(v === 'users' && isEditor()){
+    loadUsers().then(render);
+  }
 }
 
 function renderBanner(){
   const banner = document.getElementById('banner');
-  if(state.err && state.session && displayName() && state.view !== 'submit'){
-    banner.innerHTML = `<div class="banner-note" style="color:var(--rust);background:var(--rust-dim);">${escapeHtml(state.err)}</div>`;
-  } else {
-    banner.innerHTML = '';
+  const parts = [];
+  if(accountLocked()){
+    parts.push(`<div class="banner-note" style="color:var(--rust);background:var(--rust-dim);">${escapeHtml(lockedMessage())}</div>`);
   }
+  if(state.err && state.session && displayName() && state.view !== 'submit'){
+    parts.push(`<div class="banner-note" style="color:var(--rust);background:var(--rust-dim);">${escapeHtml(state.err)}</div>`);
+  }
+  banner.innerHTML = parts.join('');
 }
 
 function renderMain(){
@@ -1283,6 +1613,15 @@ function renderMain(){
     });
     return;
   }
+
+  if(state.view === 'users'){
+    if(!isEditor()){
+      main.innerHTML = `<div class="scroll-panel"><div class="narrow"><div class="locked-msg"><div class="glyph">†</div><p>This desk is for the editor only.</p></div></div></div>`;
+      return;
+    }
+    renderUsersDashboard(main);
+    return;
+  }
 }
 
 function render(){
@@ -1295,6 +1634,7 @@ function render(){
 async function init(){
   const { data: { session } } = await sb.auth.getSession();
   state.session = session;
+  await loadOwnProfile();
   await loadArticles();
   openArticleFromHash();
   render();
@@ -1304,6 +1644,7 @@ async function init(){
   sb.auth.onAuthStateChange(async (_event, session) => {
     state.session = session;
     state.magicLinkSent = false;
+    await loadOwnProfile();
     await loadArticles();
     render();
     if(state.view === 'feed' && state.selectedId){
