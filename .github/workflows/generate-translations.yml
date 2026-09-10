@@ -1,0 +1,45 @@
+name: Generate article translations
+
+on:
+  schedule:
+    # Once a day — this run does real local translation work (not a
+    # quick API call), so it doesn't need to run as often as the
+    # preview generator.
+    - cron: '0 3 * * *'
+  workflow_dispatch: {}   # adds a manual "Run workflow" button in the Actions tab
+
+permissions:
+  contents: read
+
+jobs:
+  translate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Caches both the installed pip packages and the downloaded Argos
+      # language model files, so repeat runs don't redo this work.
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('scripts/requirements-translate.txt') }}
+
+      - name: Cache Argos language models
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/argos-translate
+          key: argos-models-${{ hashFiles('scripts/generate_translations.py') }}
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements-translate.txt
+
+      - name: Generate translations
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python scripts/generate_translations.py
