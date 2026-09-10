@@ -197,6 +197,11 @@
   textarea:focus{border-color:var(--gold);}
   .submit-row{display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:16px;flex-wrap:wrap;}
   .field-note{font-size:12px;color:var(--slate);}
+  .review-note-field{margin:16px 0;}
+  .review-note-field label{display:block;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--slate);margin-bottom:6px;}
+  .review-note-field textarea{width:100%;min-height:70px;background:var(--ink-900);border:1px solid var(--ink-line);color:var(--paper);border-radius:6px;padding:10px 12px;font-family:'Inter',sans-serif;font-size:13px;resize:vertical;box-sizing:border-box;}
+  .review-note-box{margin-top:14px;padding:12px 16px;border-left:2px solid var(--gold);background:var(--ink-800);border-radius:0 6px 6px 0;font-size:14px;}
+  .review-note-label{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--gold);margin-bottom:4px;}
   .queue-item{background:var(--ink-800);border:1px solid var(--ink-line);border-radius:10px;padding:20px;margin-bottom:14px;}
   .queue-item h3{font-family:'Fraunces',serif;font-size:19px;margin:0 0 6px;font-weight:600;}
   .queue-actions{display:flex;gap:8px;margin-top:14px;}
@@ -291,7 +296,8 @@ let state = {
   submitCategoryId: "",
   submitSubcategoryId: "",
   deskGroupFilter: null,
-  reviewGroupFilter: null
+  reviewGroupFilter: null,
+  reviewNoteDraft: ""
 };
 
 function isEditor(){
@@ -728,12 +734,15 @@ async function saveArticleEdit(){
 }
 
 async function setStatus(id, status){
+  const note = (state.reviewNoteDraft || '').trim();
   const patch = { status };
   if(status === 'approved') patch.approved_at = new Date().toISOString();
+  if(note) patch.review_note = note;
   const { error } = await sb.from('articles').update(patch).eq('id', id);
   if(error){
     state.err = error.message;
   }
+  state.reviewNoteDraft = "";
   state.selectedId = null;
   await loadArticles();
   render();
@@ -1171,6 +1180,7 @@ function selectArticle(id){
   state.commentDraft = "";
   state.replyTargetId = null;
   state.replyDrafts = {};
+  state.reviewNoteDraft = "";
   state.err = "";
   render();
   if(state.view === 'feed'){
@@ -1690,13 +1700,18 @@ function deskDetailHtml(a){
       </div>
       <div class="byline">${fmtDate(a.created_at)}</div>
       ${categoryTagsHtml(a)}
+      ${a.review_note ? `<div class="review-note-box"><div class="review-note-label">Note from the review${a.status === 'rejected' ? '' : ' — thanks!'}</div><div>${escapeHtml(a.review_note)}</div></div>` : ''}
       <div class="body-text" style="margin-top:18px;">${escapeHtml(a.body)}</div>
     </article>`;
 }
 
 function reviewDetailHtml(a){
   const actions = a.status === 'pending'
-    ? `<div class="article-actions">
+    ? `<div class="review-note-field">
+         <label>Note to the author (optional)</label>
+         <textarea id="reviewNoteDraft" placeholder="e.g. Great message — please add a Scripture citation for the second point before we can publish.">${escapeHtml(state.reviewNoteDraft || '')}</textarea>
+       </div>
+       <div class="article-actions">
          <button class="btn btn-gold" onclick="setStatus('${a.id}','approved')">Approve & publish</button>
          <button class="btn btn-rust" onclick="setStatus('${a.id}','rejected')">Decline</button>
        </div>`
@@ -1706,6 +1721,9 @@ function reviewDetailHtml(a){
            <button class="btn btn-rust" onclick="setStatus('${a.id}','pending')">Unpublish</button>
          </div>`
       : '';
+  const existingNote = a.review_note
+    ? `<div class="review-note-box"><div class="review-note-label">Note left with this decision</div><div>${escapeHtml(a.review_note)}</div></div>`
+    : '';
   return `
     <article class="detail-article">
       <div class="article-head" style="margin-bottom:6px;">
@@ -1714,6 +1732,7 @@ function reviewDetailHtml(a){
       </div>
       <div class="byline"><b>${escapeHtml(a.author_name || a.author_email)}</b> · ${fmtDate(a.created_at)}</div>
       ${categoryTagsHtml(a)}
+      ${existingNote}
       <div class="body-text" style="margin-top:18px;">${escapeHtml(a.body)}</div>
       ${actions}
     </article>`;
@@ -2122,6 +2141,8 @@ function renderMain(){
         <p class="welcome-copy">Select a piece to read it in full, then approve, decline, or edit it directly before publishing. Approving makes it public on the Feed immediately; declining sends it back to the contributor's desk with the piece marked as declined.</p>
         <p class="welcome-copy" style="margin-bottom:0;">Managing contributors instead? That's over in User Desk.</p>`
     });
+    const rn = document.getElementById('reviewNoteDraft');
+    if(rn) rn.oninput = e => state.reviewNoteDraft = e.target.value;
     return;
   }
 
