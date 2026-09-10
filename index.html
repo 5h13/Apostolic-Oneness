@@ -1179,15 +1179,27 @@ function renderMyThread(main){
 async function loadForumQuestions(){
   const { data, error } = await sb
     .from('forum_questions')
-    .select('*, forum_answers(id)')
+    .select(`
+      id,
+      title,
+      body,
+      author_email,
+      author_name,
+      accepted_answer_id,
+      created_at,
+      forum_answers:forum_answers!forum_answers_question_id_fkey(id)
+    `)
     .order('created_at', { ascending: false });
+
   if(error){ state.err = error.message; return; }
+
   state.forumQuestions = (data || []).map(q => ({
     ...q,
     answer_count: (q.forum_answers || []).length
   }));
   state.forumQuestionsLoaded = true;
 }
+
 
 async function loadForumAnswers(questionId){
   const { data, error } = await sb
