@@ -106,6 +106,12 @@
   .welcome-message{max-width:560px;line-height:1.7;color:var(--slate);text-align:left;}
   .welcome-heading{margin:0 0 10px;color:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;}
   .welcome-copy{margin:0 0 14px;color:var(--paper);}
+  .dash-section{margin-top:26px;}
+  .dash-section-title{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold);border-bottom:1px solid var(--ink-line);padding-bottom:8px;margin-bottom:4px;}
+  .dash-row{padding:10px 0;border-bottom:1px solid var(--ink-line);cursor:pointer;}
+  .dash-row:hover .dash-row-title{color:var(--gold);}
+  .dash-row-title{font-weight:500;}
+  .dash-row-meta{font-size:12px;color:var(--slate);margin-top:2px;}
   .feed-tools{padding:14px 16px;border-bottom:1px solid var(--ink-line);background:var(--ink-900);display:flex;align-items:center;gap:8px;}
   .feed-search-wrap{flex:1 1 auto;}
   .feed-search{width:100%;background:var(--ink-800);border:1px solid var(--ink-line);border-radius:8px;padding:10px 12px;color:var(--paper);font-size:13px;font-family:'Inter',sans-serif;outline:none;}
@@ -316,19 +322,33 @@ let state = {
   forumAnswerDraft: "",
   forumSearchTerm: "",
   translationLang: "",
-  translationCache: {}
+  translationCache: {},
+  prayerRequests: [],
+  prayerRequestsLoaded: false,
+  selectedPrayerId: null,
+  prayerComposerOpen: false,
+  prayerBodyDraft: "",
+  prayerResponseStatus: {}
 };
 
-// Keep this in sync with LANGUAGES in scripts/generate-translations.mjs
+// Keep this in sync with DESIRED_LANGUAGES in scripts/generate-translations.mjs
 // — this is only the display list for the dropdown; the actual
 // translating happens in that script, not here.
 const LANGUAGES = [
-  { code: 'fil', label: 'Filipino' },
+  { code: 'tl',  label: 'Filipino' },
   { code: 'vi',  label: 'Vietnamese' },
   { code: 'id',  label: 'Indonesian' },
   { code: 'th',  label: 'Thai' },
   { code: 'hi',  label: 'Hindi' },
   { code: 'es',  label: 'Spanish' }
+];
+
+const PRAYER_REACTIONS = [
+  { type: 'praying', emoji: '🙏', label: 'Praying' },
+  { type: 'love',    emoji: '❤️', label: 'Love' },
+  { type: 'comfort', emoji: '🤍', label: 'Comfort' },
+  { type: 'faith',   emoji: '🔥', label: 'Faith' },
+  { type: 'peace',   emoji: '🌿', label: 'Peace' }
 ];
 
 function isEditor(){
@@ -1179,27 +1199,15 @@ function renderMyThread(main){
 async function loadForumQuestions(){
   const { data, error } = await sb
     .from('forum_questions')
-    .select(`
-      id,
-      title,
-      body,
-      author_email,
-      author_name,
-      accepted_answer_id,
-      created_at,
-      forum_answers:forum_answers!forum_answers_question_id_fkey(id)
-    `)
+    .select('*, forum_answers(id)')
     .order('created_at', { ascending: false });
-
   if(error){ state.err = error.message; return; }
-
   state.forumQuestions = (data || []).map(q => ({
     ...q,
     answer_count: (q.forum_answers || []).length
   }));
   state.forumQuestionsLoaded = true;
 }
-
 
 async function loadForumAnswers(questionId){
   const { data, error } = await sb
@@ -1476,6 +1484,279 @@ function renderForum(main){
   if(fb) fb.oninput = e => state.forumBodyDraft = e.target.value;
   const fa = document.getElementById('forumAnswerDraft');
   if(fa) fa.oninput = e => state.forumAnswerDraft = e.target.value;
+}
+
+// ===== Prayer requests =====
+
+async function loadPrayerRequests(){
+  const { data, error } = await sb
+    .from('prayer_requests')
+    .select('*, prayer_responses(reaction_type)')
+    .order('created_at', { ascending: false });
+  if(error){ state.err = error.message; return; }
+  state.prayerRequests = (data || []).map(r => {
+    const counts = {};
+    (r.prayer_responses || []).forEach(resp => {
+      counts[resp.reaction_type] = (counts[resp.reaction_type] || 0) + 1;
+    });
+    const total = (r.prayer_responses || []).length;
+    return { ...r, reaction_counts: counts, reaction_total: total };
+  });
+  state.prayerRequestsLoaded = true;
+}
+
+async function loadPrayerResponseStatus(requestId){
+  if(!state.session) return;
+  const { data } = await sb
+    .from('prayer_responses')
+    .select('reaction_type')
+    .eq('request_id', requestId)
+    .eq('user_id', state.session.user.id)
+    .maybeSingle();
+  state.prayerResponseStatus[requestId] = data ? data.reaction_type : null;
+}
+
+async function reactToPrayer(requestId, reactionType){
+  if(!state.session){
+    state.err = "Sign in above to respond.";
+    render();
+    return;
+  }
+  if(accountLocked()){
+    state.err = lockedMessage();
+    render();
+    return;
+  }
+  const selfId = state.session.user.id;
+  const current = state.prayerResponseStatus[requestId];
+
+  if(current === reactionType){
+    // Clicking the same reaction again removes it.
+    await sb.from('prayer_responses').delete().eq('request_id', requestId).eq('user_id', selfId);
+    state.prayerResponseStatus[requestId] = null;
+  } else {
+    const { error } = await sb.from('prayer_responses')
+      .upsert({ request_id: requestId, user_id: selfId, reaction_type: reactionType }, { onConflict: 'request_id,user_id' });
+    if(error){ state.err = error.message; render(); return; }
+    state.prayerResponseStatus[requestId] = reactionType;
+  }
+  await loadPrayerRequests();
+  render();
+}
+
+function openPrayerComposer(){
+  state.prayerComposerOpen = true;
+  state.selectedPrayerId = null;
+  state.prayerBodyDraft = "";
+  state.err = "";
+  render();
+}
+function closePrayerComposer(){
+  state.prayerComposerOpen = false;
+  render();
+}
+
+async function selectPrayer(id){
+  state.selectedPrayerId = id;
+  state.prayerComposerOpen = false;
+  state.err = "";
+  render();
+  await loadPrayerResponseStatus(id);
+  render();
+}
+function clearPrayerSelection(){
+  state.selectedPrayerId = null;
+  render();
+}
+
+async function postPrayerRequest(){
+  if(!state.session){
+    state.err = "Sign in above to post a prayer request.";
+    render();
+    return;
+  }
+  if(accountLocked()){
+    state.err = lockedMessage();
+    render();
+    return;
+  }
+  const body = state.prayerBodyDraft.trim();
+  if(!body){
+    state.err = "Write your prayer request before posting.";
+    render();
+    return;
+  }
+  state.err = "";
+  const { error } = await sb.from('prayer_requests').insert({
+    body,
+    author_email: state.session.user.email,
+    author_name: displayName()
+  });
+  if(error){
+    state.err = error.message;
+    render();
+    return;
+  }
+  state.prayerComposerOpen = false;
+  state.prayerBodyDraft = "";
+  await loadPrayerRequests();
+  render();
+}
+
+async function deletePrayerRequest(id){
+  const { error } = await sb.from('prayer_requests').delete().eq('id', id);
+  if(error){ state.err = error.message; }
+  if(state.selectedPrayerId === id) state.selectedPrayerId = null;
+  await loadPrayerRequests();
+  render();
+}
+
+function prayerRowHtml(r, active){
+  return `
+    <div class="list-row ${active ? 'active' : ''}" onclick="selectPrayer('${r.id}')">
+      <div class="list-row-title">${escapeHtml((r.body || '').slice(0, 60))}${(r.body||'').length > 60 ? '…' : ''}</div>
+      <div class="list-row-meta">${r.reaction_total} ${r.reaction_total === 1 ? 'reaction' : 'reactions'} · ${escapeHtml(r.author_name || r.author_email)} · ${fmtDate(r.created_at)}</div>
+    </div>`;
+}
+
+function prayerComposerHtml(){
+  return `
+    <div class="panel">
+      <div class="field">
+        <label>Your prayer request</label>
+        <textarea id="prayerBodyDraft" placeholder="Share what's on your heart — the community will be praying with you.">${escapeHtml(state.prayerBodyDraft)}</textarea>
+      </div>
+      <div class="submit-row">
+        <div class="field-note">Posts immediately — visible to everyone right away.</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost" onclick="closePrayerComposer()">Cancel</button>
+          <button class="btn btn-gold" onclick="postPrayerRequest()">Post request</button>
+        </div>
+      </div>
+      ${state.err ? `<div class="hint" style="color:var(--rust);margin-top:10px;text-align:left;">${escapeHtml(state.err)}</div>` : ''}
+    </div>`;
+}
+
+function prayerDetailHtml(r){
+  const myReaction = state.prayerResponseStatus[r.id];
+  const canModerate = state.session && (r.author_email === state.session.user.email || isStaff());
+  const buttons = PRAYER_REACTIONS.map(rx => `
+    <button class="reaction-btn ${myReaction === rx.type ? 'active' : ''}" onclick="reactToPrayer('${r.id}','${rx.type}')" title="${rx.label}">
+      ${rx.emoji} <span>${(r.reaction_counts && r.reaction_counts[rx.type]) || 0}</span>
+    </button>`).join('');
+  return `
+    <article class="detail-article">
+      <div class="byline"><b>${escapeHtml(r.author_name || r.author_email)}</b> · ${fmtDate(r.created_at)}${canModerate ? ` · <a href="javascript:void(0)" class="toggle-link" onclick="deletePrayerRequest('${r.id}')">Delete</a>` : ''}</div>
+      <div class="body-text" style="margin-top:18px;">${escapeHtml(r.body)}</div>
+      <div class="reaction-bar" style="margin-top:24px;">${buttons}</div>
+    </article>`;
+}
+
+function renderPrayers(main){
+  const requests = state.prayerRequests;
+  const selected = state.prayerComposerOpen ? null : requests.find(r => r.id === state.selectedPrayerId) || null;
+
+  const listBody = requests.length
+    ? requests.map(r => prayerRowHtml(r, r.id === state.selectedPrayerId && !state.prayerComposerOpen)).join('')
+    : `<div class="empty"><div class="glyph">†</div><p>No prayer requests yet.</p></div>`;
+
+  const askButton = state.session
+    ? `<button class="btn btn-gold btn-small" onclick="openPrayerComposer()" style="width:100%;">+ Share a prayer request</button>`
+    : `<div class="hint" style="margin:0;">Sign in above to share a request.</div>`;
+
+  const detailHtml = state.prayerComposerOpen
+    ? prayerComposerHtml()
+    : selected
+      ? `<a class="back-link" onclick="clearPrayerSelection();return false;" href="#">← Back to list</a>${prayerDetailHtml(selected)}`
+      : `<div class="detail-empty"><div class="glyph">†</div><div class="welcome-message">
+          <p class="welcome-heading">Prayer Requests</p>
+          <p class="welcome-copy">Share what's weighing on you, and let the community pray with you. Anyone can read; signing in lets you post and respond.</p>
+          <p class="welcome-copy" style="margin-bottom:0;">Select a request on the left, or share your own.</p>
+        </div></div>`;
+
+  main.innerHTML = `
+    <div class="split ${(state.selectedPrayerId || state.prayerComposerOpen) ? 'has-selection' : ''}">
+      <div class="split-list">
+        <div class="feed-tools">${askButton}</div>
+        ${listBody}
+      </div>
+      <div class="split-detail">${detailHtml}</div>
+    </div>`;
+
+  const pb = document.getElementById('prayerBodyDraft');
+  if(pb) pb.oninput = e => state.prayerBodyDraft = e.target.value;
+}
+
+function goToQuestion(id){
+  setView('forum');
+  state.selectedQuestionId = id;
+  loadForumAnswers(id);
+}
+function goToPrayer(id){
+  setView('prayers');
+  state.selectedPrayerId = id;
+  loadPrayerResponseStatus(id);
+}
+
+function homeDashboardHtml(){
+  const articles = state.articles.filter(a => a.status === 'approved').slice(0, 5);
+  const trendingQuestions = [...state.forumQuestions]
+    .sort((a, b) => (b.answer_count - a.answer_count) || (new Date(b.created_at) - new Date(a.created_at)))
+    .slice(0, 5);
+  const latestPrayers = state.prayerRequests.slice(0, 5);
+
+  const articleRows = articles.length
+    ? articles.map(a => `
+        <div class="dash-row" onclick="selectArticle('${a.id}')">
+          <div class="dash-row-title">${escapeHtml(a.title)}</div>
+          <div class="dash-row-meta">${escapeHtml(a.author_name || a.author_email)} · ${fmtDate(a.created_at)}</div>
+        </div>`).join('')
+    : `<p class="hint" style="text-align:left;">No articles published yet.</p>`;
+
+  const questionRows = trendingQuestions.length
+    ? trendingQuestions.map(q => `
+        <div class="dash-row" onclick="goToQuestion('${q.id}')">
+          <div class="dash-row-title">${q.accepted_answer_id ? '✓ ' : ''}${escapeHtml(q.title)}</div>
+          <div class="dash-row-meta">${q.answer_count} ${q.answer_count === 1 ? 'answer' : 'answers'}</div>
+        </div>`).join('')
+    : `<p class="hint" style="text-align:left;">No questions yet.</p>`;
+
+  const prayerRows = latestPrayers.length
+    ? latestPrayers.map(r => `
+        <div class="dash-row" onclick="goToPrayer('${r.id}')">
+          <div class="dash-row-title">${escapeHtml((r.body || '').slice(0, 60))}${(r.body || '').length > 60 ? '…' : ''}</div>
+          <div class="dash-row-meta">${r.reaction_total} ${r.reaction_total === 1 ? 'reaction' : 'reactions'} · ${escapeHtml(r.author_name || r.author_email)}</div>
+        </div>`).join('')
+    : `<p class="hint" style="text-align:left;">No prayer requests yet.</p>`;
+
+  return `
+    <div style="text-align:left;">
+      <p class="welcome-heading">The Flint</p>
+      <p class="welcome-copy">Apostolic oneness articles of faith, questions, and prayer — all in one place. <a href="javascript:void(0)" onclick="setView('about')" style="color:var(--gold);">Learn more about The Flint →</a></p>
+
+      <div class="dash-section">
+        <div class="dash-section-title">Latest Articles</div>
+        ${articleRows}
+      </div>
+      <div class="dash-section">
+        <div class="dash-section-title">Trending Questions</div>
+        ${questionRows}
+      </div>
+      <div class="dash-section">
+        <div class="dash-section-title">Latest Prayer Requests</div>
+        ${prayerRows}
+      </div>
+    </div>`;
+}
+
+function aboutPageHtml(){
+  return `
+    <p class="welcome-heading">The Flint<br>About this site</p>
+    <p class="welcome-copy">The Flint is an apostolic oneness articles‑of‑faith publishing site dedicated to proclaiming the revelation of the One God. This platform exists to strengthen believers, equip ministers, and preserve the doctrine handed down by the apostles. Every article published here aims to uphold biblical truth with clarity, conviction, and reverence.</p>
+    <p class="welcome-copy">At the heart of our faith is the declaration that Jesus Christ is the one God manifest in the flesh. He is the fullness of the Godhead bodily, the visible image of the invisible God, the Father revealed to humanity through the Son. This site stands firmly upon that foundation and invites all who share this conviction to contribute to the growing library of teaching, study, and proclamation.</p>
+    <p class="welcome-copy">Oneness believers may create an account to submit their articles. All submissions are reviewed and approved by the editor before publication. Only articles that uphold apostolic doctrine and sound biblical teaching will be published.</p>
+    <p class="welcome-copy">The Flint is also a community. Readers can react to articles, leave comments, ask and answer questions in the Forum, share prayer requests, and share teachings across social media platforms. Every article becomes a conversation — a place where believers can encourage one another, ask questions, and grow deeper in the truth of the One God.</p>
+    <p class="welcome-copy" style="margin-bottom:0;">May every page deepen your understanding of Jesus Christ, our Lord and Savior, and strengthen your walk in the apostolic faith.</p>`;
 }
 
 function stampHtml(status){
@@ -1886,14 +2167,7 @@ function renderSplit(main, items, opts){
   }
 
   const selected = items.find(a => a.id === state.selectedId) || null;
-  const defaultWelcome = `
-        <p class="welcome-heading">The Flint<br>Welcome message</p>
-        <p class="welcome-copy">The Flint is an apostolic oneness articles‑of‑faith publishing site dedicated to proclaiming the revelation of the One God. This platform exists to strengthen believers, equip ministers, and preserve the doctrine handed down by the apostles. Every article published here aims to uphold biblical truth with clarity, conviction, and reverence.</p>
-        <p class="welcome-copy">At the heart of our faith is the declaration that Jesus Christ is the one God manifest in the flesh. He is the fullness of the Godhead bodily, the visible image of the invisible God, the Father revealed to humanity through the Son. This site stands firmly upon that foundation and invites all who share this conviction to contribute to the growing library of teaching, study, and proclamation.</p>
-        <p class="welcome-copy">Oneness believers may create an account to submit their articles. All submissions are reviewed and approved by the editor before publication. Only articles that uphold apostolic doctrine and sound biblical teaching will be published.</p>
-        <p class="welcome-copy">The Flint is also a community. Readers can react to articles, leave comments, and share teachings across social media platforms. Every article becomes a conversation — a place where believers can encourage one another, ask questions, and grow deeper in the truth of the One God.</p>
-        <p class="welcome-copy">As you explore the articles on the left, may every page deepen your understanding of Jesus Christ, our Lord and Savior, and strengthen your walk in the apostolic faith.</p>
-        <p class="welcome-copy" style="margin-bottom:0;">Select an article on the left to begin reading.</p>`;
+  const defaultWelcome = homeDashboardHtml();
   const detailHtml = selected
     ? `<a class="back-link" onclick="clearSelection();return false;" href="#">← Back to list</a>${opts.detailHtml(selected)}`
     : `<div class="detail-empty"><div class="glyph">†</div><div class="welcome-message">${opts.welcomeHtml || defaultWelcome}</div></div>`;
@@ -2307,7 +2581,8 @@ function renderNav(){
   if(!state.session || !displayName()){
     nav.innerHTML = `
       <button class="${state.view==='feed'?'active':''}" onclick="setView('feed')">Feed (${feedCount})</button>
-      <button class="${state.view==='forum'?'active':''}" onclick="setView('forum')">Forum</button>`;
+      <button class="${state.view==='forum'?'active':''}" onclick="setView('forum')">Forum</button>
+      <button class="${state.view==='prayers'?'active':''}" onclick="setView('prayers')">Prayers</button>`;
     return;
   }
   const staff = isStaff();
@@ -2315,6 +2590,7 @@ function renderNav(){
   const tabs = [
     {id:'feed', label:`Feed (${feedCount})`},
     {id:'forum', label:'Forum'},
+    {id:'prayers', label:'Prayers'},
     {id:'submit', label:'Submit'},
     {id:'desk', label:'My desk'},
     {id:'messages', label:'Messages', count: state.unreadTotal}
@@ -2356,6 +2632,8 @@ function setView(v){
   state.deskGroupFilter = null;
   state.reviewGroupFilter = null;
   state.forumComposerOpen = false;
+  state.selectedPrayerId = null;
+  state.prayerComposerOpen = false;
   render();
   if(v === 'users' && isEditor()){
     loadUsers().then(render);
@@ -2369,6 +2647,9 @@ function setView(v){
   }
   if(v === 'forum'){
     loadForumQuestions().then(render);
+  }
+  if(v === 'prayers'){
+    loadPrayerRequests().then(render);
   }
 }
 
@@ -2422,6 +2703,20 @@ function renderMain(){
 
   if(state.view === 'forum'){
     renderForum(main);
+    return;
+  }
+
+  if(state.view === 'prayers'){
+    renderPrayers(main);
+    return;
+  }
+
+  if(state.view === 'about'){
+    main.innerHTML = `
+      <div class="scroll-panel"><div class="narrow">
+        <a class="back-link" onclick="setView('feed');return false;" href="#">← Back to Home</a>
+        <div class="welcome-message" style="margin-top:16px;">${aboutPageHtml()}</div>
+      </div></div>`;
     return;
   }
 
@@ -2577,6 +2872,8 @@ async function init(){
   await loadArticles();
   await loadUnreadTotal();
   await loadCategories();
+  await loadForumQuestions();
+  await loadPrayerRequests();
   openArticleFromHash();
   render();
 
@@ -2618,15 +2915,30 @@ async function init(){
 
   sb.channel('forum-changes')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'forum_questions' }, async () => {
-      if(state.view === 'forum'){
+      if(state.view === 'forum' || state.view === 'feed'){
         await loadForumQuestions();
         render();
       }
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'forum_answers' }, async () => {
-      if(state.view === 'forum'){
+      if(state.view === 'forum' || state.view === 'feed'){
         await loadForumQuestions();
         if(state.selectedQuestionId) await loadForumAnswers(state.selectedQuestionId);
+        render();
+      }
+    })
+    .subscribe();
+
+  sb.channel('prayer-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'prayer_requests' }, async () => {
+      if(state.view === 'prayers' || state.view === 'feed'){
+        await loadPrayerRequests();
+        render();
+      }
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'prayer_responses' }, async () => {
+      if(state.view === 'prayers' || state.view === 'feed'){
+        await loadPrayerRequests();
         render();
       }
     })
