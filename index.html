@@ -112,6 +112,11 @@
   .dash-row:hover .dash-row-title{color:var(--gold);}
   .dash-row-title{font-weight:500;}
   .dash-row-meta{font-size:12px;color:var(--slate);margin-top:2px;}
+  .word-count{font-size:11px;color:var(--slate);text-align:right;margin-top:4px;font-family:'IBM Plex Mono',monospace;}
+  .verse-lookup{background:var(--ink-900);border:1px solid var(--ink-line);border-radius:8px;padding:12px;margin-bottom:10px;}
+  .verse-result{margin-top:10px;padding:10px 14px;border-left:2px solid var(--gold);background:var(--ink-800);border-radius:0 6px 6px 0;}
+  .verse-text{font-family:'Fraunces',serif;font-style:italic;font-size:14px;line-height:1.5;color:var(--paper);}
+  .verse-ref{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--gold);margin-top:6px;}
   .feed-tools{padding:14px 16px;border-bottom:1px solid var(--ink-line);background:var(--ink-900);display:flex;align-items:center;gap:8px;}
   .feed-search-wrap{flex:1 1 auto;}
   .feed-search{width:100%;background:var(--ink-800);border:1px solid var(--ink-line);border-radius:8px;padding:10px 12px;color:var(--paper);font-size:13px;font-family:'Inter',sans-serif;outline:none;}
@@ -328,7 +333,10 @@ let state = {
   selectedPrayerId: null,
   prayerComposerOpen: false,
   prayerBodyDraft: "",
-  prayerResponseStatus: {}
+  prayerResponseStatus: {},
+  verseLookupOpen: false,
+  verseRefDraft: "",
+  verseResult: null
 };
 
 // Keep this in sync with DESIRED_LANGUAGES in scripts/generate-translations.mjs
@@ -425,6 +433,11 @@ function initials(name){
 function fmtDate(iso){
   return new Date(iso).toLocaleDateString(undefined, {year:'numeric', month:'short', day:'numeric'});
 }
+function wordCount(text){
+  const trimmed = (text || '').trim();
+  return trimmed ? trimmed.split(/\s+/).length : 0;
+}
+
 function escapeHtml(s){
   const d = document.createElement('div');
   d.innerText = s;
@@ -666,6 +679,60 @@ async function saveDraft(){
   render();
 }
 
+// ===== KJV verse lookup (bible-api.com — free, no key required) =====
+
+function toggleVerseLookup(){
+  state.verseLookupOpen = !state.verseLookupOpen;
+  if(!state.verseLookupOpen) state.verseResult = null;
+  render();
+}
+
+async function lookupVerse(){
+  const ref = (state.verseRefDraft || '').trim();
+  if(!ref) return;
+  state.verseResult = 'loading';
+  render();
+  try {
+    const res = await fetch(`https://bible-api.com/${encodeURIComponent(ref)}?translation=kjv`);
+    const data = await res.json();
+    if(!res.ok || !data || !data.text || data.error){
+      state.verseResult = 'error';
+      render();
+      return;
+    }
+    state.verseResult = {
+      reference: data.reference,
+      text: data.text.trim().replace(/\s+/g, ' ')
+    };
+  } catch(e){
+    state.verseResult = 'error';
+  }
+  render();
+}
+
+function insertVerse(){
+  if(!state.verseResult || state.verseResult === 'loading' || state.verseResult === 'error') return;
+  const quote = `"${state.verseResult.text}" — ${state.verseResult.reference} (KJV)`;
+  const ta = document.getElementById('submitBody');
+
+  if(ta){
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const before = state.submitBody.slice(0, start);
+    const after = state.submitBody.slice(end);
+    const lead = before && !before.endsWith('\n\n') ? (before.endsWith('\n') ? '\n' : '\n\n') : '';
+    state.submitBody = before + lead + quote + '\n\n' + after;
+  } else {
+    state.submitBody = (state.submitBody ? state.submitBody + '\n\n' : '') + quote + '\n\n';
+  }
+
+  state.verseLookupOpen = false;
+  state.verseRefDraft = '';
+  state.verseResult = null;
+  state.draftSaved = false;
+  render();
+}
+
 function newSubmission(){
   state.editingArticleId = null;
   state.submitTitle = "";
@@ -673,6 +740,9 @@ function newSubmission(){
   state.submitCategoryId = "";
   state.submitSubcategoryId = "";
   state.draftSaved = false;
+  state.verseLookupOpen = false;
+  state.verseRefDraft = "";
+  state.verseResult = null;
   state.err = "";
   render();
 }
@@ -686,6 +756,9 @@ function editDraft(id){
   state.submitCategoryId = a.category_id || "";
   state.submitSubcategoryId = a.subcategory_id || "";
   state.draftSaved = false;
+  state.verseLookupOpen = false;
+  state.verseRefDraft = "";
+  state.verseResult = null;
   state.selectedId = null;
   state.err = "";
   state.view = "submit";
@@ -1199,16 +1272,13 @@ function renderMyThread(main){
 async function loadForumQuestions(){
   const { data, error } = await sb
     .from('forum_questions')
-    .select('*, forum_answers:forum_answers_question_id_fkey(id)')
+    .select('*, forum_answers!forum_answers_question_id_fkey(id)')
     .order('created_at', { ascending: false });
-
   if(error){ state.err = error.message; return; }
-
   state.forumQuestions = (data || []).map(q => ({
     ...q,
     answer_count: (q.forum_answers || []).length
   }));
-
   state.forumQuestionsLoaded = true;
 }
 
@@ -1218,12 +1288,9 @@ async function loadForumAnswers(questionId){
     .select('*')
     .eq('question_id', questionId)
     .order('created_at', { ascending: true });
-
   if(error){ state.err = error.message; return; }
-
   state.forumAnswers = data || [];
 }
-
 
 function getFilteredForumQuestions(){
   const q = state.forumSearchTerm.trim().toLowerCase();
@@ -2628,6 +2695,9 @@ function setView(v){
     state.submitCategoryId = "";
     state.submitSubcategoryId = "";
     state.draftSaved = false;
+    state.verseLookupOpen = false;
+    state.verseRefDraft = "";
+    state.verseResult = null;
   }
   state.view = v;
   state.selectedId = null;
@@ -2753,11 +2823,30 @@ function renderMain(){
           : ''}
         <div class="field">
           <label>Headline</label>
-          <input type="text" id="submitTitle" placeholder="A working title" value="${escapeHtml(state.submitTitle)}">
+          <input type="text" id="submitTitle" placeholder="A working title" spellcheck="true" lang="en" value="${escapeHtml(state.submitTitle)}">
         </div>
         <div class="field">
-          <label>Article</label>
-          <textarea id="submitBody" placeholder="Write the piece here.">${escapeHtml(state.submitBody)}</textarea>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <label style="margin:0;">Article</label>
+            <button type="button" class="btn btn-ghost btn-small" onclick="toggleVerseLookup()">📖 ${state.verseLookupOpen ? 'Close verse lookup' : 'Insert Bible verse'}</button>
+          </div>
+          ${state.verseLookupOpen ? `
+            <div class="verse-lookup">
+              <div style="display:flex;gap:8px;">
+                <input type="text" id="verseRefDraft" placeholder="e.g. John 3:16, or Romans 8:28-30" value="${escapeHtml(state.verseRefDraft)}" style="flex:1;">
+                <button type="button" class="btn btn-gold btn-small" onclick="lookupVerse()">Look up</button>
+              </div>
+              ${state.verseResult === 'loading' ? `<div class="hint" style="text-align:left;margin-top:8px;">Looking up…</div>` : ''}
+              ${state.verseResult === 'error' ? `<div class="hint" style="text-align:left;margin-top:8px;color:var(--rust);">Couldn't find that reference — check the spelling (e.g. "John 3:16" or "1 Corinthians 13:4-7").</div>` : ''}
+              ${(state.verseResult && state.verseResult !== 'loading' && state.verseResult !== 'error') ? `
+                <div class="verse-result">
+                  <div class="verse-text">"${escapeHtml(state.verseResult.text)}"</div>
+                  <div class="verse-ref">${escapeHtml(state.verseResult.reference)} (KJV)</div>
+                  <button type="button" class="btn btn-gold btn-small" onclick="insertVerse()" style="margin-top:8px;">Insert into article</button>
+                </div>` : ''}
+            </div>` : ''}
+          <textarea id="submitBody" placeholder="Write the piece here." spellcheck="true" lang="en">${escapeHtml(state.submitBody)}</textarea>
+          <div class="word-count" id="wordCountDisplay">${wordCount(state.submitBody)} words</div>
         </div>
         <div class="field-row">
           <div class="field">
@@ -2787,9 +2876,19 @@ function renderMain(){
       </div>
       </div></div>`;
     document.getElementById('submitTitle').oninput = e => { state.submitTitle = e.target.value; state.draftSaved = false; };
-    document.getElementById('submitBody').oninput = e => { state.submitBody = e.target.value; state.draftSaved = false; };
+    document.getElementById('submitBody').oninput = e => {
+      state.submitBody = e.target.value;
+      state.draftSaved = false;
+      const wc = document.getElementById('wordCountDisplay');
+      if(wc) wc.textContent = wordCount(state.submitBody) + ' words';
+    };
     document.getElementById('submitCategory').onchange = e => { state.submitCategoryId = e.target.value; state.draftSaved = false; };
     document.getElementById('submitSubcategory').onchange = e => { state.submitSubcategoryId = e.target.value; state.draftSaved = false; };
+    const vr = document.getElementById('verseRefDraft');
+    if(vr){
+      vr.oninput = e => state.verseRefDraft = e.target.value;
+      vr.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); lookupVerse(); } };
+    }
     return;
   }
 
