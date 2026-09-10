@@ -130,6 +130,13 @@
   .reply-actions{display:flex;justify-content:flex-end;gap:8px;}
   .comment-form{margin-top:16px;display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
   .comment-form textarea{min-height:70px;}
+  .comment-meta-actions{margin-left:auto;display:flex;gap:10px;}
+  .comments-heading{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--slate);margin-bottom:6px;}
+  .comment-composer{display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
+  .comment-composer textarea{width:100%;min-height:70px;background:var(--ink-900);border:1px solid var(--ink-line);color:var(--paper);border-radius:6px;padding:10px 12px;font-family:'Inter',sans-serif;font-size:14px;resize:vertical;box-sizing:border-box;}
+  .forum-answer{padding:14px 0;border-bottom:1px solid var(--ink-line);}
+  .forum-answer.accepted{background:rgba(139,178,110,0.06);padding:14px 16px;border-radius:8px;border-bottom:1px solid var(--ink-line);}
+  .accepted-badge{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--green);margin-bottom:8px;}
   .back-link{display:none;color:var(--gold);text-decoration:none;font-size:12px;font-family:'IBM Plex Mono',monospace;letter-spacing:0.04em;text-transform:uppercase;cursor:pointer;margin-bottom:18px;}
   .article{padding:26px 0;border-bottom:1px solid var(--ink-line);}
   .article:first-child{padding-top:0;}
@@ -188,6 +195,7 @@
   .category-tag-sub{color:var(--slate);}
   .feed-filters{display:flex;gap:8px;padding:0 16px 12px;flex-wrap:wrap;border-bottom:1px solid var(--ink-line);background:var(--ink-900);}
   .filter-select{background:var(--ink-800);border:1px solid var(--ink-line);color:var(--paper);border-radius:6px;padding:6px 8px;font-family:'Inter',sans-serif;font-size:12px;flex:1;min-width:110px;}
+  .translate-bar{display:flex;justify-content:flex-end;margin-bottom:10px;}
   .row{display:flex;}
   .category-pill-list{display:flex;flex-wrap:wrap;gap:8px;}
   .category-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;background:var(--ink-800);border:1px solid var(--ink-line);border-radius:20px;padding:5px 6px 5px 12px;}
@@ -297,8 +305,31 @@ let state = {
   submitSubcategoryId: "",
   deskGroupFilter: null,
   reviewGroupFilter: null,
-  reviewNoteDraft: ""
+  reviewNoteDraft: "",
+  forumQuestions: [],
+  forumQuestionsLoaded: false,
+  forumAnswers: [],
+  selectedQuestionId: null,
+  forumComposerOpen: false,
+  forumTitleDraft: "",
+  forumBodyDraft: "",
+  forumAnswerDraft: "",
+  forumSearchTerm: "",
+  translationLang: "",
+  translationCache: {}
 };
+
+// Keep this in sync with LANGUAGES in scripts/generate-translations.mjs
+// — this is only the display list for the dropdown; the actual
+// translating happens in that script, not here.
+const LANGUAGES = [
+  { code: 'fil', label: 'Filipino' },
+  { code: 'vi',  label: 'Vietnamese' },
+  { code: 'id',  label: 'Indonesian' },
+  { code: 'th',  label: 'Thai' },
+  { code: 'hi',  label: 'Hindi' },
+  { code: 'es',  label: 'Spanish' }
+];
 
 function isEditor(){
   return !!state.session && state.session.user.email === EDITOR_EMAIL;
@@ -1143,6 +1174,298 @@ function renderMyThread(main){
   wireMessageComposer();
 }
 
+// ===== Forum (questions & answers) =====
+
+async function loadForumQuestions(){
+  const { data, error } = await sb
+    .from('forum_questions')
+    .select('*, forum_answers(id)')
+    .order('created_at', { ascending: false });
+  if(error){ state.err = error.message; return; }
+  state.forumQuestions = (data || []).map(q => ({
+    ...q,
+    answer_count: (q.forum_answers || []).length
+  }));
+  state.forumQuestionsLoaded = true;
+}
+
+async function loadForumAnswers(questionId){
+  const { data, error } = await sb
+    .from('forum_answers')
+    .select('*')
+    .eq('question_id', questionId)
+    .order('created_at', { ascending: true });
+  if(error){ state.err = error.message; return; }
+  state.forumAnswers = data || [];
+}
+
+function getFilteredForumQuestions(){
+  const q = state.forumSearchTerm.trim().toLowerCase();
+  if(!q) return state.forumQuestions;
+  return state.forumQuestions.filter(item => {
+    const haystack = [item.title, item.body, item.author_name, item.author_email].join(' ').toLowerCase();
+    return haystack.includes(q);
+  });
+}
+
+function openForumComposer(){
+  state.forumComposerOpen = true;
+  state.selectedQuestionId = null;
+  state.forumTitleDraft = "";
+  state.forumBodyDraft = "";
+  state.err = "";
+  render();
+}
+function closeForumComposer(){
+  state.forumComposerOpen = false;
+  render();
+}
+
+async function selectQuestion(id){
+  state.selectedQuestionId = id;
+  state.forumComposerOpen = false;
+  state.forumAnswerDraft = "";
+  state.err = "";
+  render();
+  await loadForumAnswers(id);
+  render();
+}
+function clearQuestionSelection(){
+  state.selectedQuestionId = null;
+  render();
+}
+
+async function postQuestion(){
+  if(!state.session){
+    state.err = "Sign in above to ask a question.";
+    render();
+    return;
+  }
+  if(accountLocked()){
+    state.err = lockedMessage();
+    render();
+    return;
+  }
+  const title = state.forumTitleDraft.trim();
+  const body = state.forumBodyDraft.trim();
+  if(!title || !body){
+    state.err = "Both a title and question text are required.";
+    render();
+    return;
+  }
+  state.err = "";
+  const { data, error } = await sb.from('forum_questions').insert({
+    title,
+    body,
+    author_email: state.session.user.email,
+    author_name: displayName()
+  }).select().single();
+  if(error){
+    state.err = error.message;
+    render();
+    return;
+  }
+  state.forumComposerOpen = false;
+  state.forumTitleDraft = "";
+  state.forumBodyDraft = "";
+  await loadForumQuestions();
+  if(data) await selectQuestion(data.id);
+  render();
+}
+
+async function postAnswer(questionId){
+  if(!state.session){
+    state.err = "Sign in above to answer.";
+    render();
+    return;
+  }
+  if(accountLocked()){
+    state.err = lockedMessage();
+    render();
+    return;
+  }
+  const body = (state.forumAnswerDraft || '').trim();
+  if(!body){
+    state.err = "Write an answer before posting.";
+    render();
+    return;
+  }
+  state.err = "";
+  const { error } = await sb.from('forum_answers').insert({
+    question_id: questionId,
+    body,
+    author_email: state.session.user.email,
+    author_name: displayName()
+  });
+  if(error){
+    state.err = error.message;
+    render();
+    return;
+  }
+  state.forumAnswerDraft = "";
+  await loadForumAnswers(questionId);
+  await loadForumQuestions();
+  render();
+}
+
+async function deleteQuestion(id){
+  const { error } = await sb.from('forum_questions').delete().eq('id', id);
+  if(error){ state.err = error.message; }
+  if(state.selectedQuestionId === id) state.selectedQuestionId = null;
+  await loadForumQuestions();
+  render();
+}
+
+async function deleteAnswer(id, questionId){
+  const { error } = await sb.from('forum_answers').delete().eq('id', id);
+  if(error){ state.err = error.message; }
+  await loadForumAnswers(questionId);
+  await loadForumQuestions();
+  render();
+}
+
+async function markAccepted(questionId, answerId){
+  const { error } = await sb.from('forum_questions').update({ accepted_answer_id: answerId }).eq('id', questionId);
+  if(error){ state.err = error.message; }
+  await loadForumQuestions();
+  render();
+}
+async function unmarkAccepted(questionId){
+  const { error } = await sb.from('forum_questions').update({ accepted_answer_id: null }).eq('id', questionId);
+  if(error){ state.err = error.message; }
+  await loadForumQuestions();
+  render();
+}
+
+function forumQuestionRowHtml(q, active){
+  return `
+    <div class="list-row ${active ? 'active' : ''}" onclick="selectQuestion('${q.id}')">
+      <div class="list-row-title">${q.accepted_answer_id ? '✓ ' : ''}${escapeHtml(q.title)}</div>
+      <div class="list-row-meta">${q.answer_count} ${q.answer_count === 1 ? 'answer' : 'answers'} · ${escapeHtml(q.author_name || q.author_email)} · ${fmtDate(q.created_at)}</div>
+    </div>`;
+}
+
+function forumAnswerHtml(ans, question){
+  const isAccepted = question.accepted_answer_id === ans.id;
+  const canModerate = state.session && (ans.author_email === state.session.user.email || isStaff());
+  const isQuestionOwner = state.session && question.author_email === state.session.user.email;
+  return `
+    <div class="forum-answer ${isAccepted ? 'accepted' : ''}">
+      ${isAccepted ? `<div class="accepted-badge">✓ Accepted answer</div>` : ''}
+      <div class="body-text">${escapeHtml(ans.body)}</div>
+      <div class="comment-meta">
+        <span><b>${escapeHtml(ans.author_name || ans.author_email)}</b> · ${fmtDate(ans.created_at)}</span>
+        <span class="comment-meta-actions">
+          ${isQuestionOwner ? (isAccepted
+            ? `<a href="javascript:void(0)" class="toggle-link" onclick="unmarkAccepted('${question.id}')">Unmark accepted</a>`
+            : `<a href="javascript:void(0)" class="toggle-link" onclick="markAccepted('${question.id}','${ans.id}')">Mark as accepted</a>`) : ''}
+          ${canModerate ? `<a href="javascript:void(0)" class="toggle-link" onclick="deleteAnswer('${ans.id}','${question.id}')">Delete</a>` : ''}
+        </span>
+      </div>
+    </div>`;
+}
+
+function forumComposerHtml(){
+  return `
+    <div class="panel">
+      <div class="field">
+        <label>Question title</label>
+        <input type="text" id="forumTitleDraft" placeholder="Ask it in one clear sentence" value="${escapeHtml(state.forumTitleDraft)}">
+      </div>
+      <div class="field">
+        <label>Details</label>
+        <textarea id="forumBodyDraft" placeholder="Add any context that helps others answer well.">${escapeHtml(state.forumBodyDraft)}</textarea>
+      </div>
+      <div class="submit-row">
+        <div class="field-note">Posts immediately — visible to everyone right away.</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost" onclick="closeForumComposer()">Cancel</button>
+          <button class="btn btn-gold" onclick="postQuestion()">Post question</button>
+        </div>
+      </div>
+      ${state.err ? `<div class="hint" style="color:var(--rust);margin-top:10px;text-align:left;">${escapeHtml(state.err)}</div>` : ''}
+    </div>`;
+}
+
+function forumQuestionDetailHtml(q){
+  const sortedAnswers = [...state.forumAnswers].sort((a, b) => {
+    if(a.id === q.accepted_answer_id) return -1;
+    if(b.id === q.accepted_answer_id) return 1;
+    return new Date(a.created_at) - new Date(b.created_at);
+  });
+  const canModerateQuestion = state.session && (q.author_email === state.session.user.email || isStaff());
+  const answersHtml = sortedAnswers.length
+    ? sortedAnswers.map(ans => forumAnswerHtml(ans, q)).join('')
+    : `<p class="hint" style="text-align:left;">No answers yet — be the first to help.</p>`;
+
+  const composer = state.session
+    ? (accountLocked()
+        ? `<div class="field-note" style="margin-top:16px;">${escapeHtml(lockedMessage())}</div>`
+        : `<div class="comment-composer" style="margin-top:20px;">
+             <textarea id="forumAnswerDraft" placeholder="Write an answer...">${escapeHtml(state.forumAnswerDraft || '')}</textarea>
+             <button class="btn btn-gold btn-small" onclick="postAnswer('${q.id}')">Post answer</button>
+           </div>`)
+    : `<p class="hint" style="text-align:left;margin-top:16px;">Sign in above to answer.</p>`;
+
+  return `
+    <article class="detail-article">
+      <h2>${escapeHtml(q.title)}</h2>
+      <div class="byline"><b>${escapeHtml(q.author_name || q.author_email)}</b> · ${fmtDate(q.created_at)}${canModerateQuestion ? ` · <a href="javascript:void(0)" class="toggle-link" onclick="deleteQuestion('${q.id}')">Delete</a>` : ''}</div>
+      <div class="body-text" style="margin-top:18px;">${escapeHtml(q.body)}</div>
+      <div class="comments-heading" style="margin-top:28px;">${sortedAnswers.length} ${sortedAnswers.length === 1 ? 'Answer' : 'Answers'}</div>
+      ${answersHtml}
+      ${composer}
+    </article>`;
+}
+
+function renderForum(main){
+  const questions = getFilteredForumQuestions();
+  const selected = state.forumComposerOpen ? null : questions.find(item => item.id === state.selectedQuestionId) || null;
+
+  const listBody = questions.length
+    ? questions.map(item => forumQuestionRowHtml(item, item.id === state.selectedQuestionId && !state.forumComposerOpen)).join('')
+    : `<div class="empty"><div class="glyph">†</div><p>No questions yet.</p><p>Be the first to ask.</p></div>`;
+
+  const askButton = state.session
+    ? `<button class="btn btn-gold btn-small" onclick="openForumComposer()" style="width:100%;">+ Ask a question</button>`
+    : `<div class="hint" style="margin:0;">Sign in above to ask a question.</div>`;
+
+  const detailHtml = state.forumComposerOpen
+    ? forumComposerHtml()
+    : selected
+      ? `<a class="back-link" onclick="clearQuestionSelection();return false;" href="#">← Back to list</a>${forumQuestionDetailHtml(selected)}`
+      : `<div class="detail-empty"><div class="glyph">†</div><div class="welcome-message">
+          <p class="welcome-heading">Forum</p>
+          <p class="welcome-copy">Ask a question about doctrine, Scripture, or anything you're wrestling with, and let the community weigh in. Anyone can read; signing in lets you ask and answer.</p>
+          <p class="welcome-copy" style="margin-bottom:0;">Select a question on the left, or ask your own.</p>
+        </div></div>`;
+
+  main.innerHTML = `
+    <div class="split ${(state.selectedQuestionId || state.forumComposerOpen) ? 'has-selection' : ''}">
+      <div class="split-list">
+        <div class="feed-tools">
+          ${askButton}
+        </div>
+        <div class="feed-tools" style="border-top:none;">
+          <div class="feed-search-wrap">
+            <input type="search" id="forumSearch" class="feed-search" value="${escapeHtml(state.forumSearchTerm)}" placeholder="Search questions...">
+          </div>
+        </div>
+        ${listBody}
+      </div>
+      <div class="split-detail">${detailHtml}</div>
+    </div>`;
+
+  const fs = document.getElementById('forumSearch');
+  if(fs) fs.oninput = e => { state.forumSearchTerm = e.target.value; renderForum(main); };
+  const ft = document.getElementById('forumTitleDraft');
+  if(ft) ft.oninput = e => state.forumTitleDraft = e.target.value;
+  const fb = document.getElementById('forumBodyDraft');
+  if(fb) fb.oninput = e => state.forumBodyDraft = e.target.value;
+  const fa = document.getElementById('forumAnswerDraft');
+  if(fa) fa.oninput = e => state.forumAnswerDraft = e.target.value;
+}
+
 function stampHtml(status){
   const label = status === "approved" ? "Approved" : status === "pending" ? "Pending" : "Declined";
   return `<div class="stamp ${status}">${label}</div>`;
@@ -1181,6 +1504,7 @@ function selectArticle(id){
   state.replyTargetId = null;
   state.replyDrafts = {};
   state.reviewNoteDraft = "";
+  state.translationLang = "";
   state.err = "";
   render();
   if(state.view === 'feed'){
@@ -1356,6 +1680,28 @@ async function toggleLike(articleId){
     await sb.from('article_likes').insert({ article_id: articleId, user_email: email });
   }
   await loadArticleExtras(articleId);
+}
+
+async function setTranslationLang(articleId, lang){
+  state.translationLang = lang;
+  if(!lang){
+    render();
+    return;
+  }
+  const cacheKey = `${articleId}:${lang}`;
+  if(state.translationCache[cacheKey] !== undefined){
+    render();
+    return;
+  }
+  render(); // show "Loading translation…" immediately
+  const { data, error } = await sb
+    .from('translations')
+    .select('translated_title, translated_body')
+    .eq('article_id', articleId)
+    .eq('language_code', lang)
+    .maybeSingle();
+  state.translationCache[cacheKey] = (error || !data) ? null : data;
+  render();
 }
 
 async function shareArticle(id){
@@ -1634,12 +1980,32 @@ function categoryTagsHtml(a){
 function feedDetailHtml(a){
   const canInteract = !!state.session;
   const shareLabel = state.shareCopied === a.id ? 'Link copied!' : 'Share';
+
+  const cacheKey = `${a.id}:${state.translationLang}`;
+  const cached = state.translationLang ? state.translationCache[cacheKey] : undefined;
+  const showTranslation = state.translationLang && cached && cached.translated_body;
+  const displayTitle = showTranslation ? cached.translated_title : a.title;
+  const displayBody = showTranslation ? cached.translated_body : a.body;
+  const translationNote = !state.translationLang ? '' :
+    cached === null
+      ? `<div class="field-note" style="margin-top:8px;">Translation not ready yet for this language — showing the original below. Check back shortly.</div>`
+      : cached === undefined
+        ? `<div class="field-note" style="margin-top:8px;">Loading translation…</div>`
+        : `<div class="field-note" style="margin-top:8px;">Machine-translated — the original is in English.</div>`;
+
   return `
     <article class="detail-article">
-      <h2>${escapeHtml(a.title)}</h2>
+      <div class="translate-bar">
+        <select id="translationSelect" class="filter-select" style="flex:0 0 auto;min-width:150px;">
+          <option value="">Original (English)</option>
+          ${LANGUAGES.map(l => `<option value="${l.code}" ${state.translationLang===l.code?'selected':''}>${l.label}</option>`).join('')}
+        </select>
+      </div>
+      <h2>${escapeHtml(displayTitle)}</h2>
       <div class="byline"><b>${escapeHtml(a.author_name || a.author_email)}</b> · ${fmtDate(a.created_at)}</div>
       ${categoryTagsHtml(a)}
-      <div class="body-text" style="margin-top:18px;">${escapeHtml(a.body)}</div>
+      ${translationNote}
+      <div class="body-text" style="margin-top:18px;">${escapeHtml(displayBody)}</div>
 
       <div id="reaction-bar" class="reaction-bar">
         <button class="reaction-btn" data-type="amen">👍 <span>0</span></button>
@@ -1927,13 +2293,16 @@ function renderNav(){
   const nav = document.getElementById('nav');
   const feedCount = getFilteredPublishedArticles().length;
   if(!state.session || !displayName()){
-    nav.innerHTML = `<button class="active">Feed (${feedCount})</button>`;
+    nav.innerHTML = `
+      <button class="${state.view==='feed'?'active':''}" onclick="setView('feed')">Feed (${feedCount})</button>
+      <button class="${state.view==='forum'?'active':''}" onclick="setView('forum')">Forum</button>`;
     return;
   }
   const staff = isStaff();
   const pendingCount = state.articles.filter(a => a.status === 'pending').length;
   const tabs = [
     {id:'feed', label:`Feed (${feedCount})`},
+    {id:'forum', label:'Forum'},
     {id:'submit', label:'Submit'},
     {id:'desk', label:'My desk'},
     {id:'messages', label:'Messages', count: state.unreadTotal}
@@ -1971,8 +2340,10 @@ function setView(v){
   state.err = "";
   state.suspendMenuFor = null;
   state.selectedThreadId = null;
+  state.selectedQuestionId = null;
   state.deskGroupFilter = null;
   state.reviewGroupFilter = null;
+  state.forumComposerOpen = false;
   render();
   if(v === 'users' && isEditor()){
     loadUsers().then(render);
@@ -1983,6 +2354,9 @@ function setView(v){
     } else {
       loadThread(state.session.user.id).then(render);
     }
+  }
+  if(v === 'forum'){
+    loadForumQuestions().then(render);
   }
 }
 
@@ -2022,12 +2396,20 @@ function renderMain(){
     const cd = document.getElementById('commentDraft');
     if(cd) cd.oninput = e => state.commentDraft = e.target.value;
 
+    const ts = document.getElementById('translationSelect');
+    if(ts && state.selectedId) ts.onchange = e => setTranslationLang(state.selectedId, e.target.value);
+
     document.querySelectorAll('[id^="replyInput-"]').forEach((replyInput) => {
       const id = replyInput.id.replace('replyInput-', '');
       replyInput.oninput = e => {
         state.replyDrafts[id] = e.target.value;
       };
     });
+    return;
+  }
+
+  if(state.view === 'forum'){
+    renderForum(main);
     return;
   }
 
@@ -2219,6 +2601,22 @@ async function init(){
         }
       }
       render();
+    })
+    .subscribe();
+
+  sb.channel('forum-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'forum_questions' }, async () => {
+      if(state.view === 'forum'){
+        await loadForumQuestions();
+        render();
+      }
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'forum_answers' }, async () => {
+      if(state.view === 'forum'){
+        await loadForumQuestions();
+        if(state.selectedQuestionId) await loadForumAnswers(state.selectedQuestionId);
+        render();
+      }
     })
     .subscribe();
 }
