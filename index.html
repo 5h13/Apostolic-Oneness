@@ -85,6 +85,14 @@
   #main{flex:1 1 auto;min-height:0;overflow:hidden;}
   .scroll-panel{height:100%;overflow-y:auto;}
   .narrow{max-width:640px;margin:0 auto;padding:24px 20px 60px;}
+  .narrow-wide{max-width:920px;margin:0 auto;padding:24px 20px 60px;}
+  .submit-layout{display:flex;gap:20px;align-items:flex-start;}
+  .submit-main{flex:1;min-width:0;}
+  .submit-sidebar{width:300px;flex-shrink:0;position:sticky;top:20px;}
+  @media (max-width:820px){
+    .submit-layout{flex-direction:column;}
+    .submit-sidebar{width:100%;position:static;}
+  }
   .split{display:flex;height:100%;}
   .split-list{width:340px;flex:0 0 340px;overflow-y:auto;min-height:0;border-right:1px solid var(--ink-line);}
   .split-detail{flex:1 1 auto;overflow-y:auto;min-height:0;padding:28px 40px 60px;}
@@ -439,9 +447,9 @@ function wordCount(text){
 }
 
 function escapeHtml(s){
-  const d = document.createElement('div');
-  d.innerText = s;
-  return d.innerHTML;
+  return (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
 }
 
 async function sendMagicLink(){
@@ -2808,74 +2816,90 @@ function renderMain(){
   if(state.view === 'submit'){
     const editingArticle = state.editingArticleId ? state.articles.find(x => x.id === state.editingArticleId) : null;
     const editingLive = editingArticle && editingArticle.status !== 'draft';
+    const sidebarOpen = state.verseLookupOpen;
     main.innerHTML = `
-      <div class="scroll-panel"><div class="narrow">
+      <div class="scroll-panel"><div class="narrow-wide">
       ${!state.editingArticleId ? `
       <div class="submit-intro">
         <p class="welcome-copy" style="margin-bottom:8px;">Write from conviction, cite Scripture where you can, and keep the focus on the truth being taught rather than on any one personality or ministry.</p>
         <p class="welcome-copy" style="margin-bottom:0;">Picking a category and topic below helps readers find your piece through the Feed's filters — it's optional, but recommended. You can save a draft any time and come back to finish it later from My Desk.</p>
       </div>` : ''}
-      <div class="panel">
-        ${state.editingArticleId
-          ? (editingLive
-              ? `<div class="field-note" style="margin-bottom:14px;">Editing a ${editingArticle.status} article — changes save in place, status stays the same. <a href="#" onclick="newSubmission();return false;" style="color:var(--gold);">Start a new article instead</a></div>`
-              : `<div class="field-note" style="margin-bottom:14px;">Editing a saved draft. <a href="#" onclick="newSubmission();return false;" style="color:var(--gold);">Start a new article instead</a></div>`)
-          : ''}
-        <div class="field">
-          <label>Headline</label>
-          <input type="text" id="submitTitle" placeholder="A working title" spellcheck="true" lang="en" value="${escapeHtml(state.submitTitle)}">
-        </div>
-        <div class="field">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-            <label style="margin:0;">Article</label>
-            <button type="button" class="btn btn-ghost btn-small" onclick="toggleVerseLookup()">📖 ${state.verseLookupOpen ? 'Close verse lookup' : 'Insert Bible verse'}</button>
-          </div>
-          ${state.verseLookupOpen ? `
-            <div class="verse-lookup">
-              <div style="display:flex;gap:8px;">
-                <input type="text" id="verseRefDraft" placeholder="e.g. John 3:16, or Romans 8:28-30" value="${escapeHtml(state.verseRefDraft)}" style="flex:1;">
-                <button type="button" class="btn btn-gold btn-small" onclick="lookupVerse()">Look up</button>
-              </div>
-              ${state.verseResult === 'loading' ? `<div class="hint" style="text-align:left;margin-top:8px;">Looking up…</div>` : ''}
-              ${state.verseResult === 'error' ? `<div class="hint" style="text-align:left;margin-top:8px;color:var(--rust);">Couldn't find that reference — check the spelling (e.g. "John 3:16" or "1 Corinthians 13:4-7").</div>` : ''}
-              ${(state.verseResult && state.verseResult !== 'loading' && state.verseResult !== 'error') ? `
-                <div class="verse-result">
-                  <div class="verse-text">"${escapeHtml(state.verseResult.text)}"</div>
-                  <div class="verse-ref">${escapeHtml(state.verseResult.reference)} (KJV)</div>
-                  <button type="button" class="btn btn-gold btn-small" onclick="insertVerse()" style="margin-top:8px;">Insert into article</button>
-                </div>` : ''}
-            </div>` : ''}
-          <textarea id="submitBody" placeholder="Write the piece here." spellcheck="true" lang="en">${escapeHtml(state.submitBody)}</textarea>
-          <div class="word-count" id="wordCountDisplay">${wordCount(state.submitBody)} words</div>
-        </div>
-        <div class="field-row">
+      <div class="submit-layout">
+        <div class="panel submit-main">
+          ${state.editingArticleId
+            ? (editingLive
+                ? `<div class="field-note" style="margin-bottom:14px;">Editing a ${editingArticle.status} article — changes save in place, status stays the same. <a href="#" onclick="newSubmission();return false;" style="color:var(--gold);">Start a new article instead</a></div>`
+                : `<div class="field-note" style="margin-bottom:14px;">Editing a saved draft. <a href="#" onclick="newSubmission();return false;" style="color:var(--gold);">Start a new article instead</a></div>`)
+            : ''}
           <div class="field">
-            <label>Category</label>
-            <select id="submitCategory">
-              <option value="">— None —</option>
-              ${state.categories.map(c => `<option value="${c.id}" ${state.submitCategoryId===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
-            </select>
+            <label>Headline</label>
+            <input type="text" id="submitTitle" placeholder="A working title" spellcheck="true" lang="en" value="${escapeHtml(state.submitTitle)}">
           </div>
           <div class="field">
-            <label>Topic</label>
-            <select id="submitSubcategory">
-              <option value="">— None —</option>
-              ${state.subcategories.map(s => `<option value="${s.id}" ${state.submitSubcategoryId===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}
-            </select>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <label style="margin:0;">Article</label>
+              <button type="button" class="btn btn-ghost btn-small" onclick="toggleVerseLookup()">📖 ${sidebarOpen ? 'Hide verse lookup' : 'Bible verse lookup'}</button>
+            </div>
+            <textarea id="submitBody" placeholder="Write the piece here." spellcheck="true" lang="en">${escapeHtml(state.submitBody)}</textarea>
+            <div class="word-count" id="wordCountDisplay">${wordCount(state.submitBody)} words</div>
           </div>
-        </div>
-        <div class="submit-row">
-          <div class="field-note">${editingLive ? "Saves in place — no re-approval needed." : (isStaff() ? "Publishes immediately — you have review privileges." : "Goes to the editor for approval before it's published.")}</div>
-          <div style="display:flex;gap:8px;">
-            ${!editingLive ? `<button class="btn btn-ghost" onclick="saveDraft()">Save draft</button>` : ''}
-            <button class="btn btn-gold" onclick="${editingLive ? 'saveArticleEdit()' : 'submitArticle()'}">${editingLive ? 'Save changes' : (isStaff() ? 'Publish' : 'Send for approval')}</button>
+          <div class="field-row">
+            <div class="field">
+              <label>Category</label>
+              <select id="submitCategory">
+                <option value="">— None —</option>
+                ${state.categories.map(c => `<option value="${c.id}" ${state.submitCategoryId===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
+              </select>
+            </div>
+            <div class="field">
+              <label>Topic</label>
+              <select id="submitSubcategory">
+                <option value="">— None —</option>
+                ${state.subcategories.map(s => `<option value="${s.id}" ${state.submitSubcategoryId===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}
+              </select>
+            </div>
           </div>
+          <div class="submit-row">
+            <div class="field-note">${editingLive ? "Saves in place — no re-approval needed." : (isStaff() ? "Publishes immediately — you have review privileges." : "Goes to the editor for approval before it's published.")}</div>
+            <div style="display:flex;gap:8px;">
+              ${!editingLive ? `<button class="btn btn-ghost" onclick="saveDraft()">Save draft</button>` : ''}
+              <button class="btn btn-gold" onclick="${editingLive ? 'saveArticleEdit()' : 'submitArticle()'}">${editingLive ? 'Save changes' : (isStaff() ? 'Publish' : 'Send for approval')}</button>
+            </div>
+          </div>
+          ${state.draftSaved ? `<div class="hint" style="color:var(--green);margin-top:10px;text-align:left;">Draft saved — only visible to you until you submit it.</div>` : ''}
+          ${state.err ? `<div class="hint" style="color:var(--rust);margin-top:10px;text-align:left;">${escapeHtml(state.err)}</div>` : ''}
         </div>
-        ${state.draftSaved ? `<div class="hint" style="color:var(--green);margin-top:10px;text-align:left;">Draft saved — only visible to you until you submit it.</div>` : ''}
-        ${state.err ? `<div class="hint" style="color:var(--rust);margin-top:10px;text-align:left;">${escapeHtml(state.err)}</div>` : ''}
+        ${sidebarOpen ? `
+        <div class="submit-sidebar">
+          <div class="panel">
+            <div class="field-note" style="margin-bottom:10px;text-transform:uppercase;letter-spacing:0.08em;">📖 Bible Verse Lookup (KJV)</div>
+            <div style="display:flex;gap:8px;">
+              <input type="text" id="verseRefDraft" placeholder="e.g. John 3:16" value="${escapeHtml(state.verseRefDraft)}" style="flex:1;">
+              <button type="button" class="btn btn-gold btn-small" onclick="lookupVerse()">Look up</button>
+            </div>
+            ${state.verseResult === 'loading' ? `<div class="hint" style="text-align:left;margin-top:8px;">Looking up…</div>` : ''}
+            ${state.verseResult === 'error' ? `<div class="hint" style="text-align:left;margin-top:8px;color:var(--rust);">Couldn't find that reference — check the spelling (e.g. "John 3:16" or "1 Corinthians 13:4-7").</div>` : ''}
+            ${(state.verseResult && state.verseResult !== 'loading' && state.verseResult !== 'error') ? `
+              <div class="verse-result">
+                <div class="verse-text">"${escapeHtml(state.verseResult.text)}"</div>
+                <div class="verse-ref">${escapeHtml(state.verseResult.reference)} (KJV)</div>
+                <button type="button" class="btn btn-gold btn-small" onclick="insertVerse()" style="margin-top:8px;">Insert into article</button>
+              </div>` : ''}
+            ${!state.verseResult ? `<div class="hint" style="text-align:left;margin-top:10px;">Look up any reference and insert it at your cursor whenever you need it — this panel stays open while you write.</div>` : ''}
+          </div>
+        </div>` : ''}
       </div>
       </div></div>`;
-    document.getElementById('submitTitle').oninput = e => { state.submitTitle = e.target.value; state.draftSaved = false; };
+    document.getElementById('submitTitle').oninput = e => {
+      const pos = e.target.selectionStart;
+      const upper = e.target.value.toUpperCase();
+      if(e.target.value !== upper){
+        e.target.value = upper;
+        e.target.selectionStart = e.target.selectionEnd = pos;
+      }
+      state.submitTitle = upper;
+      state.draftSaved = false;
+    };
     document.getElementById('submitBody').oninput = e => {
       state.submitBody = e.target.value;
       state.draftSaved = false;
