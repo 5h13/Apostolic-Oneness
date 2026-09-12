@@ -4,6 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Apostolic Oneness — Articles of Faith</title>
+<meta name="description" content="Apostolic oneness articles of faith, reviewed and published — proclaiming the revelation of the one God, Jesus Christ.">
+<link rel="icon" type="image/jpeg" href="assets/logo-icon.jpg">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Apostolic Oneness — The Flint">
+<meta property="og:title" content="Apostolic Oneness — Articles of Faith">
+<meta property="og:description" content="Apostolic oneness articles of faith, reviewed and published — proclaiming the revelation of the one God, Jesus Christ.">
+<meta property="og:image" content="https://5h13.github.io/Apostolic-Oneness/assets/logo-og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Apostolic Oneness — Articles of Faith">
+<meta name="twitter:description" content="Apostolic oneness articles of faith, reviewed and published — proclaiming the revelation of the one God, Jesus Christ.">
+<meta name="twitter:image" content="https://5h13.github.io/Apostolic-Oneness/assets/logo-og.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -32,7 +44,10 @@
   .wrap{max-width:1100px;margin:0 auto;padding:0 20px;width:100%;box-sizing:border-box;display:flex;flex-direction:column;flex:1 1 auto;min-height:0;}
   .masthead{padding:40px 0 0;flex:0 0 auto;}
   .masthead-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;}
-  .brand{display:flex;flex-direction:column;gap:6px;}
+  .brand{display:flex;flex-direction:row;align-items:center;gap:14px;}
+  .brand-link{cursor:pointer;}
+  .brand-link:hover{opacity:0.85;}
+  .brand-logo{width:44px;height:44px;border-radius:6px;object-fit:cover;flex-shrink:0;}
   .brand h1{font-family:'Fraunces',serif;font-weight:600;font-size:40px;letter-spacing:-0.01em;margin:0;}
   .brand .tagline{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--slate);}
   .rule-thick{border:none;border-top:2px solid var(--paper);margin:24px 0 0;}
@@ -45,6 +60,7 @@
   .auth-box .who .seal{width:22px;height:22px;border-radius:50%;background:var(--gold-dim);color:var(--gold);display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;flex-shrink:0;}
   .auth-box .name{font-weight:500;}
   .auth-box .role-admin{color:var(--gold);font-size:11px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.06em;}
+  .auth-box .role-mod{color:var(--green);font-size:11px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.06em;}
   .auth-box .role-user{color:var(--slate);font-size:11px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.06em;}
   .auth-box .signout{margin-left:auto;background:none;border:none;color:var(--slate);cursor:pointer;font-size:12px;text-decoration:underline;padding:0;font-family:'Inter',sans-serif;}
   .auth-box .signout:hover{color:var(--paper);}
@@ -69,10 +85,22 @@
   #main{flex:1 1 auto;min-height:0;overflow:hidden;}
   .scroll-panel{height:100%;overflow-y:auto;}
   .narrow{max-width:640px;margin:0 auto;padding:24px 20px 60px;}
+  .narrow-wide{max-width:920px;margin:0 auto;padding:24px 20px 60px;}
+  .submit-layout{display:flex;gap:20px;align-items:flex-start;}
+  .submit-main{flex:1;min-width:0;}
+  .submit-sidebar{width:300px;flex-shrink:0;position:sticky;top:20px;}
+  @media (max-width:820px){
+    .submit-layout{flex-direction:column;}
+    .submit-sidebar{width:100%;position:static;}
+  }
   .split{display:flex;height:100%;}
   .split-list{width:340px;flex:0 0 340px;overflow-y:auto;min-height:0;border-right:1px solid var(--ink-line);}
   .split-detail{flex:1 1 auto;overflow-y:auto;min-height:0;padding:28px 40px 60px;}
   .list-row{padding:14px 20px;border-bottom:1px solid var(--ink-line);cursor:pointer;border-left:3px solid transparent;}
+  .list-group-header{position:sticky;top:0;z-index:1;background:var(--ink-900);border-bottom:1px solid var(--ink-line);padding:8px 20px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--slate);}
+  .list-group-header-clickable{cursor:pointer;}
+  .list-group-header-clickable:hover{color:var(--paper);}
+  .list-group-header.active{color:var(--gold);background:var(--ink-800);}
   .list-row:hover{background:var(--ink-800);}
   .list-row.active{background:var(--ink-800);border-left-color:var(--gold);}
   .list-row-title{font-family:'Fraunces',serif;font-size:15px;font-weight:600;line-height:1.3;margin-bottom:5px;}
@@ -85,7 +113,18 @@
   .detail-empty{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:18px;color:var(--slate);text-align:center;overflow-y:auto;}
   .welcome-message{max-width:560px;line-height:1.7;color:var(--slate);text-align:left;}
   .welcome-heading{margin:0 0 10px;color:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;}
-  .welcome-copy{margin:0 0 14px;}
+  .welcome-copy{margin:0 0 14px;color:var(--paper);}
+  .dash-section{margin-top:26px;}
+  .dash-section-title{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold);border-bottom:1px solid var(--ink-line);padding-bottom:8px;margin-bottom:4px;}
+  .dash-row{padding:10px 0;border-bottom:1px solid var(--ink-line);cursor:pointer;}
+  .dash-row:hover .dash-row-title{color:var(--gold);}
+  .dash-row-title{font-weight:500;}
+  .dash-row-meta{font-size:12px;color:var(--slate);margin-top:2px;}
+  .word-count{font-size:11px;color:var(--slate);text-align:right;margin-top:4px;font-family:'IBM Plex Mono',monospace;}
+  .verse-lookup{background:var(--ink-900);border:1px solid var(--ink-line);border-radius:8px;padding:12px;margin-bottom:10px;}
+  .verse-result{margin-top:10px;padding:10px 14px;border-left:2px solid var(--gold);background:var(--ink-800);border-radius:0 6px 6px 0;}
+  .verse-text{font-family:'Fraunces',serif;font-style:italic;font-size:14px;line-height:1.5;color:var(--paper);}
+  .verse-ref{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--gold);margin-top:6px;}
   .feed-tools{padding:14px 16px;border-bottom:1px solid var(--ink-line);background:var(--ink-900);display:flex;align-items:center;gap:8px;}
   .feed-search-wrap{flex:1 1 auto;}
   .feed-search{width:100%;background:var(--ink-800);border:1px solid var(--ink-line);border-radius:8px;padding:10px 12px;color:var(--paper);font-size:13px;font-family:'Inter',sans-serif;outline:none;}
@@ -110,6 +149,13 @@
   .reply-actions{display:flex;justify-content:flex-end;gap:8px;}
   .comment-form{margin-top:16px;display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
   .comment-form textarea{min-height:70px;}
+  .comment-meta-actions{margin-left:auto;display:flex;gap:10px;}
+  .comments-heading{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--slate);margin-bottom:6px;}
+  .comment-composer{display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
+  .comment-composer textarea{width:100%;min-height:70px;background:var(--ink-900);border:1px solid var(--ink-line);color:var(--paper);border-radius:6px;padding:10px 12px;font-family:'Inter',sans-serif;font-size:14px;resize:vertical;box-sizing:border-box;}
+  .forum-answer{padding:14px 0;border-bottom:1px solid var(--ink-line);}
+  .forum-answer.accepted{background:rgba(139,178,110,0.06);padding:14px 16px;border-radius:8px;border-bottom:1px solid var(--ink-line);}
+  .accepted-badge{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--green);margin-bottom:8px;}
   .back-link{display:none;color:var(--gold);text-decoration:none;font-size:12px;font-family:'IBM Plex Mono',monospace;letter-spacing:0.04em;text-transform:uppercase;cursor:pointer;margin-bottom:18px;}
   .article{padding:26px 0;border-bottom:1px solid var(--ink-line);}
   .article:first-child{padding-top:0;}
@@ -131,40 +177,64 @@
   .empty .glyph{font-family:'Fraunces',serif;font-size:32px;color:var(--ink-line);margin-bottom:10px;}
   .empty p{margin:4px 0;font-size:14px;}
   .panel{background:var(--ink-800);border:1px solid var(--ink-line);border-radius:10px;padding:24px;}
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+  .stat-card{background:var(--ink-800);border:1px solid var(--ink-line);border-radius:10px;padding:16px;text-align:center;}
+  .stat-value{font-family:'Fraunces',serif;font-size:26px;font-weight:600;color:var(--gold);}
+  .stat-label{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--slate);margin-top:4px;}
+  .user-table{width:100%;border-collapse:collapse;}
+  .user-table th{text-align:left;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--slate);padding:8px 10px;border-bottom:1px solid var(--ink-line);}
+  .user-table td{padding:10px;border-bottom:1px solid var(--ink-line);vertical-align:top;font-size:13px;}
+  .user-actions{display:flex;gap:6px;flex-wrap:wrap;}
+  .suspend-menu{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+  .msg-header{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--slate);margin-bottom:14px;}
+  .msg-thread{display:flex;flex-direction:column;gap:10px;max-height:50vh;overflow-y:auto;padding-bottom:10px;}
+  .msg-bubble{max-width:70%;padding:10px 14px;border-radius:10px;border:1px solid var(--ink-line);}
+  .msg-bubble.mine{align-self:flex-end;background:var(--ink-800);border-color:var(--gold-dim,var(--ink-line));}
+  .msg-bubble.theirs{align-self:flex-start;background:transparent;}
+  .msg-body{font-size:14px;line-height:1.5;white-space:pre-wrap;}
+  .msg-meta{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--slate);margin-top:4px;}
+  .msg-composer{display:flex;gap:10px;margin-top:16px;align-items:flex-end;}
+  .msg-composer textarea{flex:1;min-height:60px;background:var(--ink-800);border:1px solid var(--ink-line);color:var(--paper);border-radius:8px;padding:10px 12px;font-family:'Inter',sans-serif;font-size:14px;resize:vertical;}
+  @media (max-width:700px){
+    .stat-grid{grid-template-columns:repeat(2,1fr);}
+    .user-table thead{display:none;}
+    .user-table tr{display:block;border-bottom:1px solid var(--ink-line);padding:10px 0;}
+    .user-table td{display:block;border-bottom:none;padding:4px 0;}
+  }
   .panel label{display:block;font-family:'IBM Plex Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--slate);margin-bottom:6px;}
   .field{margin-bottom:18px;}
   .field input[type=text]{width:100%;font-size:15px;padding:10px 12px;}
+  .field-row{display:flex;gap:16px;flex-wrap:wrap;}
+  .field-row .field{flex:1;min-width:180px;}
+  .field select{width:100%;background:var(--ink-900);border:1px solid var(--ink-line);color:var(--paper);border-radius:6px;padding:10px 12px;font-family:'Inter',sans-serif;font-size:14px;outline:none;}
+  .field select:focus{border-color:var(--gold);}
+  .submit-intro{padding:16px 20px;margin-bottom:16px;border-left:2px solid var(--gold);background:var(--ink-800);border-radius:0 8px 8px 0;}
+  .category-tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+  .category-tag{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--gold);border:1px solid var(--ink-line);border-radius:20px;padding:3px 10px;}
+  .category-tag-sub{color:var(--slate);}
+  .feed-filters{display:flex;gap:8px;padding:0 16px 12px;flex-wrap:wrap;border-bottom:1px solid var(--ink-line);background:var(--ink-900);}
+  .filter-select{background:var(--ink-800);border:1px solid var(--ink-line);color:var(--paper);border-radius:6px;padding:6px 8px;font-family:'Inter',sans-serif;font-size:12px;flex:1;min-width:110px;}
+  .translate-bar{display:flex;justify-content:flex-end;margin-bottom:10px;}
+  .row{display:flex;}
+  .category-pill-list{display:flex;flex-wrap:wrap;gap:8px;}
+  .category-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;background:var(--ink-800);border:1px solid var(--ink-line);border-radius:20px;padding:5px 6px 5px 12px;}
+  .category-pill-remove{color:var(--rust);text-decoration:none;font-size:15px;line-height:1;padding:0 6px;}
+  .category-pill-remove:hover{color:var(--paper);}
   textarea{width:100%;min-height:220px;resize:vertical;background:var(--ink-900);border:1px solid var(--ink-line);color:var(--paper);border-radius:6px;padding:12px;font-family:'Inter',sans-serif;font-size:15px;line-height:1.6;outline:none;}
   textarea:focus{border-color:var(--gold);}
   .submit-row{display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:16px;flex-wrap:wrap;}
   .field-note{font-size:12px;color:var(--slate);}
+  .review-note-field{margin:16px 0;}
+  .review-note-field label{display:block;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--slate);margin-bottom:6px;}
+  .review-note-field textarea{width:100%;min-height:70px;background:var(--ink-900);border:1px solid var(--ink-line);color:var(--paper);border-radius:6px;padding:10px 12px;font-family:'Inter',sans-serif;font-size:13px;resize:vertical;box-sizing:border-box;}
+  .review-note-box{margin-top:14px;padding:12px 16px;border-left:2px solid var(--gold);background:var(--ink-800);border-radius:0 6px 6px 0;font-size:14px;}
+  .review-note-label{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--gold);margin-bottom:4px;}
   .queue-item{background:var(--ink-800);border:1px solid var(--ink-line);border-radius:10px;padding:20px;margin-bottom:14px;}
   .queue-item h3{font-family:'Fraunces',serif;font-size:19px;margin:0 0 6px;font-weight:600;}
   .queue-actions{display:flex;gap:8px;margin-top:14px;}
   .locked-msg{padding:40px 0;text-align:center;color:var(--slate);font-size:14px;}
   .locked-msg .glyph{font-family:'Fraunces',serif;font-size:28px;color:var(--ink-line);margin-bottom:8px;}
   .banner-note{font-size:13px;border-radius:6px;padding:10px 12px;margin-bottom:18px;}
-  .reading-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,0.8fr);gap:22px;align-items:start;}
-  .reading-list{background:var(--ink-800);border:1px solid var(--ink-line);border-radius:10px;padding:20px;margin-bottom:14px;}
-  .reading-list h2{font-family:'Fraunces',serif;font-size:22px;line-height:1.25;margin:0 0 8px;}
-  .reading-list p{color:#c3c6cf;font-size:14px;line-height:1.55;margin:0 0 14px;}
-  .reading-list ul,.reading-list-editor ul{list-style:none;margin:0;padding:0;}
-  .reading-list li,.reading-list-editor li{border-top:1px solid var(--ink-line);padding:10px 0;font-size:14px;line-height:1.45;}
-  .reading-list li a,.reading-list-editor li a{color:var(--gold);text-decoration:none;}
-  .reading-list li a:hover,.reading-list-editor li a:hover{text-decoration:underline;}
-  .reading-list-editor{background:var(--ink-800);border:1px solid var(--ink-line);border-radius:10px;padding:18px;margin-bottom:14px;}
-  .reading-list-editor input[type=text],.reading-list-editor textarea,.reading-list-editor select{width:100%;margin-bottom:10px;}
-  .reading-list-editor textarea{min-height:80px;}
-  .reading-list-editor select{background:var(--ink-900);border:1px solid var(--ink-line);color:var(--paper);border-radius:6px;padding:8px 10px;font:13px 'Inter',sans-serif;}
-  .reading-list-editor label{display:block;color:var(--slate);font-size:12px;margin-bottom:8px;}
-  .reading-list-editor li{display:flex;justify-content:space-between;gap:10px;align-items:center;}
-  .reading-list-editor li a{overflow-wrap:anywhere;}
-  .reading-list-create{margin-bottom:22px;}
-  .reading-list-create textarea{min-height:80px;margin:8px 0 10px;}
-  .reading-list-create input{width:100%;}
-  .reading-list-editor-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
-  .reading-list-heading{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--slate);margin:0 0 14px;}
-  @media(max-width:760px){.reading-layout{grid-template-columns:1fr;}}
   @media(max-width:520px){
     .brand h1{font-size:30px;}
     .masthead-top{flex-direction:column;}
@@ -182,9 +252,12 @@
 <div class="wrap">
   <div class="masthead">
     <div class="masthead-top">
-      <div class="brand">
-        <h1>Apostolic Oneness</h1>
-        <div class="tagline">articles of faith · reviewed and published</div>
+      <div class="brand brand-link" onclick="goHome()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();goHome();}" role="button" tabindex="0" title="Back to Feed">
+        <img src="assets/logo-icon.jpg" alt="Apostolic Oneness" class="brand-logo">
+        <div>
+          <h1>Apostolic Oneness</h1>
+          <div class="tagline">articles of faith · reviewed and published</div>
+        </div>
       </div>
       <div class="auth-box" id="authBox"></div>
     </div>
@@ -197,11 +270,187 @@
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script type="module">
-import { state } from './js/state.js';
-import { sb } from './js/supabase.js';
-import { articleSlug, displayName, escapeHtml, fmtDate, initials, isEditor, shortCode } from './js/utils.js';
-import { getFilteredPublishedArticles, loadArticles } from './js/articles.js';
+<script>
+const sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+const EDITOR_EMAIL = window.EDITOR_EMAIL;
+
+let state = {
+  session: null,
+  view: "feed",
+  articles: [],
+  selectedId: null,
+  likeCount: 0,
+  userLiked: false,
+  comments: [],
+  commentDraft: "",
+  shareCopied: null,
+  loginEmail: "",
+  loginPassword: "",
+  authMode: "link",
+  magicLinkSent: false,
+  resetSent: false,
+  nameDraft: "",
+  showPasswordSet: false,
+  passwordDraft: "",
+  passwordSaved: false,
+  submitTitle: "",
+  submitBody: "",
+  editingArticleId: null,
+  draftSaved: false,
+  err: "",
+  loading: true,
+  searchTerm: "",
+  replyTargetId: null,
+  replyDrafts: {},
+  profile: null,
+  users: [],
+  usersLoaded: false,
+  userSearchTerm: "",
+  userStatusFilter: "all",
+  suspendMenuFor: null,
+  messages: [],
+  threads: [],
+  threadsLoaded: false,
+  selectedThreadId: null,
+  messageDraft: "",
+  unreadTotal: 0,
+  categories: [],
+  subcategories: [],
+  categoriesLoaded: false,
+  categoryFilter: "",
+  subcategoryFilter: "",
+  authorFilter: "",
+  submitCategoryId: "",
+  submitSubcategoryId: "",
+  deskGroupFilter: null,
+  reviewGroupFilter: null,
+  reviewNoteDraft: "",
+  forumQuestions: [],
+  forumQuestionsLoaded: false,
+  forumAnswers: [],
+  selectedQuestionId: null,
+  forumComposerOpen: false,
+  forumTitleDraft: "",
+  forumBodyDraft: "",
+  forumAnswerDraft: "",
+  forumSearchTerm: "",
+  translationLang: "",
+  translationCache: {},
+  prayerRequests: [],
+  prayerRequestsLoaded: false,
+  selectedPrayerId: null,
+  prayerComposerOpen: false,
+  prayerBodyDraft: "",
+  prayerResponseStatus: {},
+  verseLookupOpen: false,
+  verseRefDraft: "",
+  verseResult: null
+};
+
+// Keep this in sync with DESIRED_LANGUAGES in scripts/generate-translations.mjs
+// — this is only the display list for the dropdown; the actual
+// translating happens in that script, not here.
+const LANGUAGES = [
+  { code: 'tl',  label: 'Filipino' },
+  { code: 'vi',  label: 'Vietnamese' },
+  { code: 'id',  label: 'Indonesian' },
+  { code: 'th',  label: 'Thai' },
+  { code: 'hi',  label: 'Hindi' },
+  { code: 'es',  label: 'Spanish' }
+];
+
+const PRAYER_REACTIONS = [
+  { type: 'praying', emoji: '🙏', label: 'Praying' },
+  { type: 'love',    emoji: '❤️', label: 'Love' },
+  { type: 'comfort', emoji: '🤍', label: 'Comfort' },
+  { type: 'faith',   emoji: '🔥', label: 'Faith' },
+  { type: 'peace',   emoji: '🌿', label: 'Peace' }
+];
+
+function isEditor(){
+  return !!state.session && state.session.user.email === EDITOR_EMAIL;
+}
+function isModerator(){
+  return !!state.session && !!state.profile && state.profile.role === 'moderator';
+}
+// "Staff" = editor or moderator — everything a moderator can do, an
+// editor can do too. Use isEditor() specifically only for things a
+// moderator should NOT get (User Desk / profile management).
+function isStaff(){
+  return isEditor() || isModerator();
+}
+
+// Editors are never locked out by their own moderation actions — avoids
+// a self-suspend/self-block accident bricking the only admin account.
+function accountLocked(){
+  if(isEditor()) return false;
+  return !!state.profile && state.profile.status !== 'active';
+}
+function lockedMessage(){
+  if(!state.profile) return "";
+  if(state.profile.status === 'suspended'){
+    const until = state.profile.suspended_until
+      ? ` until ${fmtDate(state.profile.suspended_until)}`
+      : '';
+    return `Your account is suspended${until}. You can still read published articles, but you can't submit, comment, or react.`;
+  }
+  return "";
+}
+
+async function loadOwnProfile(){
+  if(!state.session){
+    state.profile = null;
+    return;
+  }
+  const { data, error } = await sb
+    .from('profiles')
+    .select('*')
+    .eq('id', state.session.user.id)
+    .maybeSingle();
+
+  if(error || !data){
+    state.profile = null;
+    return;
+  }
+  state.profile = data;
+
+  // Revoked accounts ("blocked" in the DB) are force-signed-out on
+  // every load, not just once. Since a static site with only the anon
+  // key can't stop the sign-in call itself (that needs the service-role
+  // Admin API), this is the closest equivalent to "can no longer sign
+  // in": Supabase issues them a session, and we immediately kill it
+  // again before they can do anything with it, every single time,
+  // until an editor reinstates them.
+  if(data.status === 'blocked'){
+    await sb.auth.signOut();
+    state.session = null;
+    state.profile = null;
+    state.err = "Your access has been revoked by the editor.";
+  }
+}
+
+function displayName(){
+  if(!state.session) return "";
+  return state.session.user.user_metadata && state.session.user.user_metadata.full_name || "";
+}
+function initials(name){
+  if(!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  return (parts[0][0] + (parts[1] ? parts[1][0] : "")).toUpperCase();
+}
+function fmtDate(iso){
+  return new Date(iso).toLocaleDateString(undefined, {year:'numeric', month:'short', day:'numeric'});
+}
+function wordCount(text){
+  const trimmed = (text || '').trim();
+  return trimmed ? trimmed.split(/\s+/).length : 0;
+}
+
+function escapeHtml(s){
+  return (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
 
 async function sendMagicLink(){
   const email = state.loginEmail.trim().toLowerCase();
@@ -343,6 +592,10 @@ async function saveName(){
     state.err = error.message;
   } else {
     await sb.auth.refreshSession();
+    if(state.session){
+      await sb.from('profiles').update({ display_name: name }).eq('id', state.session.user.id);
+      state.profile = { ...(state.profile || {}), display_name: name };
+    }
   }
   render();
 }
@@ -375,7 +628,20 @@ async function handleSignOut(){
   render();
 }
 
+async function loadArticles(){
+  let query = sb.from('articles').select('*').order('created_at', { ascending: false });
+  const { data, error } = await query;
+  if(!error){
+    state.articles = data || [];
+  }
+}
+
 async function saveDraft(){
+  if(accountLocked()){
+    state.err = lockedMessage();
+    render();
+    return;
+  }
   const title = state.submitTitle.trim();
   const body = state.submitBody.trim();
   if(!title && !body){
@@ -384,9 +650,13 @@ async function saveDraft(){
     return;
   }
   state.err = "";
+  const categoryPatch = {
+    category_id: state.submitCategoryId || null,
+    subcategory_id: state.submitSubcategoryId || null
+  };
   if(state.editingArticleId){
     const { error } = await sb.from('articles')
-      .update({ title, body })
+      .update({ title, body, ...categoryPatch })
       .eq('id', state.editingArticleId);
     if(error){
       state.err = error.message;
@@ -400,7 +670,8 @@ async function saveDraft(){
         body,
         author_email: state.session.user.email,
         author_name: displayName(),
-        status: 'draft'
+        status: 'draft',
+        ...categoryPatch
       })
       .select()
       .single();
@@ -416,11 +687,70 @@ async function saveDraft(){
   render();
 }
 
+// ===== KJV verse lookup (bible-api.com — free, no key required) =====
+
+function toggleVerseLookup(){
+  state.verseLookupOpen = !state.verseLookupOpen;
+  if(!state.verseLookupOpen) state.verseResult = null;
+  render();
+}
+
+async function lookupVerse(){
+  const ref = (state.verseRefDraft || '').trim();
+  if(!ref) return;
+  state.verseResult = 'loading';
+  render();
+  try {
+    const res = await fetch(`https://bible-api.com/${encodeURIComponent(ref)}?translation=kjv`);
+    const data = await res.json();
+    if(!res.ok || !data || !data.text || data.error){
+      state.verseResult = 'error';
+      render();
+      return;
+    }
+    state.verseResult = {
+      reference: data.reference,
+      text: data.text.trim().replace(/\s+/g, ' ')
+    };
+  } catch(e){
+    state.verseResult = 'error';
+  }
+  render();
+}
+
+function insertVerse(){
+  if(!state.verseResult || state.verseResult === 'loading' || state.verseResult === 'error') return;
+  const quote = `"${state.verseResult.text}" — ${state.verseResult.reference} (KJV)`;
+  const ta = document.getElementById('submitBody');
+
+  if(ta){
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const before = state.submitBody.slice(0, start);
+    const after = state.submitBody.slice(end);
+    const lead = before && !before.endsWith('\n\n') ? (before.endsWith('\n') ? '\n' : '\n\n') : '';
+    state.submitBody = before + lead + quote + '\n\n' + after;
+  } else {
+    state.submitBody = (state.submitBody ? state.submitBody + '\n\n' : '') + quote + '\n\n';
+  }
+
+  state.verseLookupOpen = false;
+  state.verseRefDraft = '';
+  state.verseResult = null;
+  state.draftSaved = false;
+  render();
+}
+
 function newSubmission(){
   state.editingArticleId = null;
   state.submitTitle = "";
   state.submitBody = "";
+  state.submitCategoryId = "";
+  state.submitSubcategoryId = "";
   state.draftSaved = false;
+  state.verseLookupOpen = false;
+  state.verseRefDraft = "";
+  state.verseResult = null;
   state.err = "";
   render();
 }
@@ -431,7 +761,12 @@ function editDraft(id){
   state.editingArticleId = id;
   state.submitTitle = a.title;
   state.submitBody = a.body;
+  state.submitCategoryId = a.category_id || "";
+  state.submitSubcategoryId = a.subcategory_id || "";
   state.draftSaved = false;
+  state.verseLookupOpen = false;
+  state.verseRefDraft = "";
+  state.verseResult = null;
   state.selectedId = null;
   state.err = "";
   state.view = "submit";
@@ -450,6 +785,11 @@ async function deleteDraft(id){
 }
 
 async function submitArticle(){
+  if(accountLocked()){
+    state.err = lockedMessage();
+    render();
+    return;
+  }
   const title = state.submitTitle.trim();
   const body = state.submitBody.trim();
   if(!title || !body){
@@ -458,17 +798,22 @@ async function submitArticle(){
     return;
   }
   state.err = "";
+  const categoryPatch = {
+    category_id: state.submitCategoryId || null,
+    subcategory_id: state.submitSubcategoryId || null
+  };
   let error;
   if(state.editingArticleId){
-    const patch = { title, body, status: isEditor() ? 'approved' : 'pending' };
-    if(isEditor()) patch.approved_at = new Date().toISOString();
+    const patch = { title, body, status: isStaff() ? 'approved' : 'pending', ...categoryPatch };
+    if(isStaff()) patch.approved_at = new Date().toISOString();
     ({ error } = await sb.from('articles').update(patch).eq('id', state.editingArticleId));
   } else {
     ({ error } = await sb.from('articles').insert({
       title,
       body,
       author_email: state.session.user.email,
-      author_name: displayName()
+      author_name: displayName(),
+      ...categoryPatch
     }));
   }
   if(error){
@@ -478,10 +823,12 @@ async function submitArticle(){
   }
   state.submitTitle = "";
   state.submitBody = "";
+  state.submitCategoryId = "";
+  state.submitSubcategoryId = "";
   state.editingArticleId = null;
   state.draftSaved = false;
   state.selectedId = null;
-  state.view = isEditor() ? "feed" : "desk";
+  state.view = isStaff() ? "feed" : "desk";
   await loadArticles();
   render();
 }
@@ -495,7 +842,12 @@ async function saveArticleEdit(){
     return;
   }
   state.err = "";
-  const { error } = await sb.from('articles').update({ title, body }).eq('id', state.editingArticleId);
+  const { error } = await sb.from('articles').update({
+    title,
+    body,
+    category_id: state.submitCategoryId || null,
+    subcategory_id: state.submitSubcategoryId || null
+  }).eq('id', state.editingArticleId);
   if(error){
     state.err = error.message;
     render();
@@ -503,6 +855,8 @@ async function saveArticleEdit(){
   }
   state.submitTitle = "";
   state.submitBody = "";
+  state.submitCategoryId = "";
+  state.submitSubcategoryId = "";
   state.editingArticleId = null;
   state.draftSaved = false;
   state.selectedId = null;
@@ -512,15 +866,978 @@ async function saveArticleEdit(){
 }
 
 async function setStatus(id, status){
+  const note = (state.reviewNoteDraft || '').trim();
   const patch = { status };
   if(status === 'approved') patch.approved_at = new Date().toISOString();
+  if(note) patch.review_note = note;
   const { error } = await sb.from('articles').update(patch).eq('id', id);
   if(error){
     state.err = error.message;
   }
+  state.reviewNoteDraft = "";
   state.selectedId = null;
   await loadArticles();
   render();
+}
+
+// ===== User management dashboard (editor only) =====
+
+async function loadUsers(){
+  if(!isEditor()) return;
+  const { data, error } = await sb
+    .from('profiles')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if(error){
+    state.err = error.message;
+    return;
+  }
+  state.users = data || [];
+  state.usersLoaded = true;
+}
+
+function getFilteredUsers(){
+  const q = state.userSearchTerm.trim().toLowerCase();
+  return state.users.filter(u => {
+    if(state.userStatusFilter !== 'all' && u.status !== state.userStatusFilter) return false;
+    if(!q) return true;
+    const haystack = [u.email, u.display_name].join(' ').toLowerCase();
+    return haystack.includes(q);
+  });
+}
+
+function toggleSuspendMenu(userId){
+  state.suspendMenuFor = state.suspendMenuFor === userId ? null : userId;
+  render();
+}
+
+async function suspendUser(userId, hours){
+  const suspended_until = hours ? new Date(Date.now() + hours * 3600 * 1000).toISOString() : null;
+  const { error } = await sb.from('profiles')
+    .update({ status: 'suspended', suspended_until })
+    .eq('id', userId);
+  if(error){ state.err = error.message; }
+  state.suspendMenuFor = null;
+  await loadUsers();
+  render();
+}
+
+async function reinstateUser(userId){
+  const { error } = await sb.from('profiles')
+    .update({ status: 'active', suspended_until: null, force_logout_at: null })
+    .eq('id', userId);
+  if(error){ state.err = error.message; }
+  state.suspendMenuFor = null;
+  await loadUsers();
+  render();
+}
+
+// "Revoke access" — the hard action. Sets status to 'blocked' (kept as
+// the DB value for backward compatibility with existing policies) and
+// stamps force_logout_at so any currently-open session is kicked out
+// immediately. loadOwnProfile() then force-signs-out on every future
+// load while status stays 'blocked' — the closest we can get to
+// "can no longer sign in" without a service-role Admin API.
+async function revokeUser(userId){
+  const { error } = await sb.from('profiles')
+    .update({ status: 'blocked', suspended_until: null, force_logout_at: new Date().toISOString() })
+    .eq('id', userId);
+  if(error){ state.err = error.message; }
+  state.suspendMenuFor = null;
+  await loadUsers();
+  render();
+}
+
+// Only the true editor can change this (enforced both by not showing
+// the button anywhere else, and — the real boundary — the DB trigger
+// that clamps role/status changes back unless the caller is the editor).
+async function setUserRole(userId, role){
+  const { error } = await sb.from('profiles').update({ role }).eq('id', userId);
+  if(error){ state.err = error.message; }
+  await loadUsers();
+  render();
+}
+
+function userRoleBadge(role){
+  if(role === 'moderator') return `<span class="stamp-mini pending">Moderator</span>`;
+  return `<span class="hint" style="margin:0;">Contributor</span>`;
+}
+
+function userStatusBadge(status){
+  const label = status === 'active' ? 'Active' : status === 'suspended' ? 'Suspended' : 'Revoked';
+  const cls = status === 'active' ? 'approved' : status === 'suspended' ? 'pending' : 'rejected';
+  return `<span class="stamp-mini ${cls}">${label}</span>`;
+}
+
+function userActionsHtml(u){
+  if(u.email === EDITOR_EMAIL){
+    return `<span class="hint" style="margin:0;">You (editor)</span>`;
+  }
+  const menuOpen = state.suspendMenuFor === u.id;
+  const buttons = [];
+  buttons.push(`<button class="btn btn-ghost btn-small" onclick="messageUser('${u.id}')">Message</button>`);
+
+  if(u.role === 'moderator'){
+    buttons.push(`<button class="btn btn-ghost btn-small" onclick="setUserRole('${u.id}','user')">Remove moderator</button>`);
+  } else {
+    buttons.push(`<button class="btn btn-ghost btn-small" onclick="setUserRole('${u.id}','moderator')">Make moderator</button>`);
+  }
+
+  if(u.status !== 'active'){
+    buttons.push(`<button class="btn btn-ghost btn-small" onclick="reinstateUser('${u.id}')">Reinstate</button>`);
+  }
+  if(u.status !== 'suspended'){
+    buttons.push(`<button class="btn btn-ghost btn-small" onclick="toggleSuspendMenu('${u.id}')">Suspend${menuOpen ? ' ▴' : ' ▾'}</button>`);
+  }
+  if(u.status !== 'blocked'){
+    buttons.push(`<button class="btn btn-rust btn-small" onclick="revokeUser('${u.id}')" title="Signs them out immediately and blocks sign-in until reinstated">Revoke access</button>`);
+  }
+
+  const menu = menuOpen ? `
+    <div class="suspend-menu">
+      <button class="btn btn-ghost btn-small" onclick="suspendUser('${u.id}', 24)">24 hours</button>
+      <button class="btn btn-ghost btn-small" onclick="suspendUser('${u.id}', 24*7)">7 days</button>
+      <button class="btn btn-ghost btn-small" onclick="suspendUser('${u.id}', 24*30)">30 days</button>
+      <button class="btn btn-ghost btn-small" onclick="suspendUser('${u.id}', null)">Indefinitely</button>
+    </div>` : '';
+
+  return `<div class="user-actions">${buttons.join('')}</div>${menu}`;
+}
+
+function renderUsersDashboard(main){
+  const users = state.users;
+  const total = users.length;
+  const activeCount = users.filter(u => u.status === 'active').length;
+  const suspendedCount = users.filter(u => u.status === 'suspended').length;
+  const blockedCount = users.filter(u => u.status === 'blocked').length;
+
+  const draftCount = state.articles.filter(a => a.status === 'draft').length;
+  const pendingCount = state.articles.filter(a => a.status === 'pending').length;
+  const approvedCount = state.articles.filter(a => a.status === 'approved').length;
+  const rejectedCount = state.articles.filter(a => a.status === 'rejected').length;
+
+  const stat = (label, value) => `
+    <div class="stat-card">
+      <div class="stat-value">${value}</div>
+      <div class="stat-label">${label}</div>
+    </div>`;
+
+  const filtered = getFilteredUsers();
+  const rows = filtered.length
+    ? filtered.map(u => `
+      <tr>
+        <td>
+          <div style="font-weight:500;">${escapeHtml(u.display_name || '(no name yet)')}</div>
+          <div class="hint" style="text-align:left;margin:0;">${escapeHtml(u.email)}</div>
+        </td>
+        <td>${fmtDate(u.created_at)}</td>
+        <td>${userStatusBadge(u.status)}</td>
+        <td>${userRoleBadge(u.role)}</td>
+        <td>${userActionsHtml(u)}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="5" class="hint" style="text-align:center;padding:24px 0;">No users match.</td></tr>`;
+
+  const categoryPillHtml = (c) => `
+    <span class="category-pill">
+      ${escapeHtml(c.name)}
+      <a href="javascript:void(0)" onclick="deleteCategory('${c.id}')" title="Remove category" class="category-pill-remove">×</a>
+    </span>`;
+  const subcategoryPillHtml = (s) => `
+    <span class="category-pill">
+      ${escapeHtml(s.name)}
+      <a href="javascript:void(0)" onclick="deleteSubcategory('${s.id}')" title="Remove topic" class="category-pill-remove">×</a>
+    </span>`;
+
+  main.innerHTML = `
+    <div class="scroll-panel"><div class="narrow">
+
+      <div class="stat-grid">
+        ${stat('Total users', total)}
+        ${stat('Active', activeCount)}
+        ${stat('Suspended', suspendedCount)}
+        ${stat('Revoked', blockedCount)}
+        ${stat('Draft articles', draftCount)}
+        ${stat('Pending review', pendingCount)}
+        ${stat('Published', approvedCount)}
+        ${stat('Rejected', rejectedCount)}
+      </div>
+
+      <div class="panel" style="margin-top:20px;">
+        <div class="feed-tools" style="margin-bottom:14px;">
+          <div class="feed-search-wrap" style="flex:1;">
+            <input type="search" id="userSearch" class="feed-search" value="${escapeHtml(state.userSearchTerm)}" placeholder="Search by name or email...">
+          </div>
+          <select id="userStatusFilter" style="background:var(--ink-800);border:1px solid var(--ink-line);color:var(--paper);border-radius:6px;padding:8px 10px;font-family:'Inter',sans-serif;font-size:13px;">
+            <option value="all" ${state.userStatusFilter==='all'?'selected':''}>All statuses</option>
+            <option value="active" ${state.userStatusFilter==='active'?'selected':''}>Active</option>
+            <option value="suspended" ${state.userStatusFilter==='suspended'?'selected':''}>Suspended</option>
+            <option value="blocked" ${state.userStatusFilter==='blocked'?'selected':''}>Revoked</option>
+          </select>
+        </div>
+        <table class="user-table">
+          <thead><tr><th>User</th><th>Joined</th><th>Status</th><th>Role</th><th>Actions</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+
+      <div class="panel" style="margin-top:20px;">
+        <div class="field-note" style="margin-bottom:10px;text-transform:uppercase;letter-spacing:0.08em;">Categories</div>
+        <div class="category-pill-list">
+          ${state.categories.length ? state.categories.map(categoryPillHtml).join('') : `<span class="hint">None yet.</span>`}
+        </div>
+        <div class="row" style="margin-top:12px;gap:8px;">
+          <input type="text" id="newCategoryName" placeholder="New category, e.g. Apologetics" style="flex:1;">
+          <button class="btn btn-ghost btn-small" onclick="addCategory()">Add</button>
+        </div>
+
+        <div class="field-note" style="margin:20px 0 10px;text-transform:uppercase;letter-spacing:0.08em;">Topics (subcategories)</div>
+        <div class="category-pill-list">
+          ${state.subcategories.length ? state.subcategories.map(subcategoryPillHtml).join('') : `<span class="hint">None yet.</span>`}
+        </div>
+        <div class="row" style="margin-top:12px;gap:8px;">
+          <input type="text" id="newSubcategoryName" placeholder="New topic, e.g. Prayer & Fasting" style="flex:1;">
+          <button class="btn btn-ghost btn-small" onclick="addSubcategory()">Add</button>
+        </div>
+        <div class="hint" style="text-align:left;margin-top:12px;">These power the Category/Topic dropdowns on Submit and the filters on the Feed — add as many as you like, any time, from right here.</div>
+      </div>
+
+    </div></div>`;
+
+  document.getElementById('userSearch').oninput = e => { state.userSearchTerm = e.target.value; renderUsersDashboard(main); };
+  document.getElementById('userStatusFilter').onchange = e => { state.userStatusFilter = e.target.value; renderUsersDashboard(main); };
+  document.getElementById('newCategoryName').onkeydown = e => { if(e.key==='Enter') addCategory(); };
+  document.getElementById('newSubcategoryName').onkeydown = e => { if(e.key==='Enter') addSubcategory(); };
+}
+
+// ===== Internal messaging (editor <-> contributor, one thread each) =====
+
+async function loadUnreadTotal(){
+  if(!state.session){ state.unreadTotal = 0; return; }
+  const { count, error } = await sb
+    .from('messages')
+    .select('id', { count: 'exact', head: true })
+    .is('read_at', null)
+    .neq('sender_id', state.session.user.id);
+  if(!error) state.unreadTotal = count || 0;
+}
+
+async function loadThreads(){
+  if(!isStaff()) return;
+  const { data, error } = await sb
+    .from('messages')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if(error){ state.err = error.message; return; }
+
+  const byContributor = new Map();
+  (data || []).forEach(m => {
+    if(!byContributor.has(m.contributor_id)){
+      byContributor.set(m.contributor_id, {
+        id: m.contributor_id,
+        lastBody: m.body,
+        lastAt: m.created_at,
+        unread: 0
+      });
+    }
+    const t = byContributor.get(m.contributor_id);
+    if(m.sender_id !== state.session.user.id && !m.read_at) t.unread++;
+  });
+
+  const ids = Array.from(byContributor.keys());
+  if(ids.length){
+    const { data: profiles } = await sb.from('profiles').select('id,email,display_name').in('id', ids);
+    (profiles || []).forEach(p => {
+      const t = byContributor.get(p.id);
+      if(t){ t.email = p.email; t.name = p.display_name || p.email; }
+    });
+  }
+
+  state.threads = Array.from(byContributor.values())
+    .sort((a, b) => new Date(b.lastAt) - new Date(a.lastAt));
+  state.threadsLoaded = true;
+}
+
+async function loadThread(contributorId){
+  if(!contributorId || !state.session) return;
+  const { data, error } = await sb
+    .from('messages')
+    .select('*')
+    .eq('contributor_id', contributorId)
+    .order('created_at', { ascending: true });
+  if(error){ state.err = error.message; return; }
+  state.messages = data || [];
+
+  const selfId = state.session.user.id;
+  const unreadIds = state.messages.filter(m => m.sender_id !== selfId && !m.read_at).map(m => m.id);
+  if(unreadIds.length){
+    const nowIso = new Date().toISOString();
+    await sb.from('messages').update({ read_at: nowIso }).in('id', unreadIds);
+    state.messages.forEach(m => { if(unreadIds.includes(m.id)) m.read_at = nowIso; });
+  }
+  await loadUnreadTotal();
+  if(isStaff()) await loadThreads();
+}
+
+function selectThread(contributorId){
+  state.selectedThreadId = contributorId;
+  render();
+  loadThread(contributorId).then(render);
+}
+
+function messageUser(contributorId){
+  state.view = 'messages';
+  loadThreads().then(() => selectThread(contributorId));
+}
+
+function clearThreadSelection(){
+  state.selectedThreadId = null;
+  render();
+}
+
+async function sendMessage(){
+  if(!state.session) return;
+  const body = (state.messageDraft || "").trim();
+  if(!body) return;
+
+  const selfId = state.session.user.id;
+  const contributorId = isStaff() ? state.selectedThreadId : selfId;
+  if(!contributorId) return;
+
+  state.messageDraft = "";
+  const { error } = await sb.from('messages').insert({
+    contributor_id: contributorId,
+    sender_id: selfId,
+    body
+  });
+  if(error){
+    state.err = error.message;
+    render();
+    return;
+  }
+  await loadThread(contributorId);
+  render();
+}
+
+function messageThreadHtml(withWhom){
+  const selfId = state.session.user.id;
+  const bubbles = state.messages.length
+    ? state.messages.map(m => `
+        <div class="msg-bubble ${m.sender_id === selfId ? 'mine' : 'theirs'}">
+          <div class="msg-body">${escapeHtml(m.body)}</div>
+          <div class="msg-meta">${fmtDate(m.created_at)}</div>
+        </div>`).join('')
+    : `<p class="hint">No messages yet — say hello.</p>`;
+
+  return `
+    <div class="msg-header">Conversation with ${escapeHtml(withWhom)}</div>
+    <div class="msg-thread" id="msgThread">${bubbles}</div>
+    <div class="msg-composer">
+      <textarea id="messageDraft" placeholder="Write a message...">${escapeHtml(state.messageDraft || '')}</textarea>
+      <button class="btn btn-gold" onclick="sendMessage()">Send</button>
+    </div>`;
+}
+
+function wireMessageComposer(){
+  const ta = document.getElementById('messageDraft');
+  if(ta) ta.oninput = e => state.messageDraft = e.target.value;
+  const threadEl = document.getElementById('msgThread');
+  if(threadEl) threadEl.scrollTop = threadEl.scrollHeight;
+}
+
+function renderMessagesInbox(main){
+  const listBody = state.threads.length
+    ? state.threads.map(t => `
+        <div class="list-row ${t.id === state.selectedThreadId ? 'active' : ''}" onclick="selectThread('${t.id}')">
+          <div class="list-row-title">${escapeHtml(t.name || t.email || '(unknown)')}${t.unread ? `<span class="count" style="margin-left:8px;">${t.unread}</span>` : ''}</div>
+          <div class="list-row-meta">${escapeHtml((t.lastBody || '').slice(0, 60))}${(t.lastBody || '').length > 60 ? '…' : ''} · ${fmtDate(t.lastAt)}</div>
+        </div>`).join('')
+    : `<div class="empty"><div class="glyph">†</div><p>No conversations yet.</p><p>Message a contributor from User Desk to start one.</p></div>`;
+
+  const thread = state.threads.find(t => t.id === state.selectedThreadId) || null;
+  const detailHtml = thread
+    ? `<a class="back-link" onclick="clearThreadSelection();return false;" href="#">← Back to inbox</a>${messageThreadHtml(thread.name || thread.email)}`
+    : `<div class="detail-empty"><div class="glyph">†</div><p>Select a conversation on the left.</p></div>`;
+
+  main.innerHTML = `
+    <div class="split ${state.selectedThreadId ? 'has-selection' : ''}">
+      <div class="split-list">${listBody}</div>
+      <div class="split-detail">${detailHtml}</div>
+    </div>`;
+
+  wireMessageComposer();
+}
+
+function renderMyThread(main){
+  main.innerHTML = `
+    <div class="scroll-panel"><div class="narrow">
+      ${messageThreadHtml('the editor')}
+    </div></div>`;
+  wireMessageComposer();
+}
+
+// ===== Forum (questions & answers) =====
+
+async function loadForumQuestions(){
+  const { data, error } = await sb
+    .from('forum_questions')
+    .select('*, forum_answers!forum_answers_question_id_fkey(id)')
+    .order('created_at', { ascending: false });
+  if(error){ state.err = error.message; return; }
+  state.forumQuestions = (data || []).map(q => ({
+    ...q,
+    answer_count: (q.forum_answers || []).length
+  }));
+  state.forumQuestionsLoaded = true;
+}
+
+async function loadForumAnswers(questionId){
+  const { data, error } = await sb
+    .from('forum_answers')
+    .select('*')
+    .eq('question_id', questionId)
+    .order('created_at', { ascending: true });
+  if(error){ state.err = error.message; return; }
+  state.forumAnswers = data || [];
+}
+
+function getFilteredForumQuestions(){
+  const q = state.forumSearchTerm.trim().toLowerCase();
+  if(!q) return state.forumQuestions;
+  return state.forumQuestions.filter(item => {
+    const haystack = [item.title, item.body, item.author_name, item.author_email].join(' ').toLowerCase();
+    return haystack.includes(q);
+  });
+}
+
+function openForumComposer(){
+  state.forumComposerOpen = true;
+  state.selectedQuestionId = null;
+  state.forumTitleDraft = "";
+  state.forumBodyDraft = "";
+  state.err = "";
+  render();
+}
+function closeForumComposer(){
+  state.forumComposerOpen = false;
+  render();
+}
+
+async function selectQuestion(id){
+  state.selectedQuestionId = id;
+  state.forumComposerOpen = false;
+  state.forumAnswerDraft = "";
+  state.err = "";
+  render();
+  await loadForumAnswers(id);
+  render();
+}
+function clearQuestionSelection(){
+  state.selectedQuestionId = null;
+  render();
+}
+
+async function postQuestion(){
+  if(!state.session){
+    state.err = "Sign in above to ask a question.";
+    render();
+    return;
+  }
+  if(accountLocked()){
+    state.err = lockedMessage();
+    render();
+    return;
+  }
+  const title = state.forumTitleDraft.trim();
+  const body = state.forumBodyDraft.trim();
+  if(!title || !body){
+    state.err = "Both a title and question text are required.";
+    render();
+    return;
+  }
+  state.err = "";
+  const { data, error } = await sb.from('forum_questions').insert({
+    title,
+    body,
+    author_email: state.session.user.email,
+    author_name: displayName()
+  }).select().single();
+  if(error){
+    state.err = error.message;
+    render();
+    return;
+  }
+  state.forumComposerOpen = false;
+  state.forumTitleDraft = "";
+  state.forumBodyDraft = "";
+  await loadForumQuestions();
+  if(data) await selectQuestion(data.id);
+  render();
+}
+
+async function postAnswer(questionId){
+  if(!state.session){
+    state.err = "Sign in above to answer.";
+    render();
+    return;
+  }
+  if(accountLocked()){
+    state.err = lockedMessage();
+    render();
+    return;
+  }
+  const body = (state.forumAnswerDraft || '').trim();
+  if(!body){
+    state.err = "Write an answer before posting.";
+    render();
+    return;
+  }
+  state.err = "";
+  const { error } = await sb.from('forum_answers').insert({
+    question_id: questionId,
+    body,
+    author_email: state.session.user.email,
+    author_name: displayName()
+  });
+  if(error){
+    state.err = error.message;
+    render();
+    return;
+  }
+  state.forumAnswerDraft = "";
+  await loadForumAnswers(questionId);
+  await loadForumQuestions();
+  render();
+}
+
+async function deleteQuestion(id){
+  const { error } = await sb.from('forum_questions').delete().eq('id', id);
+  if(error){ state.err = error.message; }
+  if(state.selectedQuestionId === id) state.selectedQuestionId = null;
+  await loadForumQuestions();
+  render();
+}
+
+async function deleteAnswer(id, questionId){
+  const { error } = await sb.from('forum_answers').delete().eq('id', id);
+  if(error){ state.err = error.message; }
+  await loadForumAnswers(questionId);
+  await loadForumQuestions();
+  render();
+}
+
+async function markAccepted(questionId, answerId){
+  const { error } = await sb.from('forum_questions').update({ accepted_answer_id: answerId }).eq('id', questionId);
+  if(error){ state.err = error.message; }
+  await loadForumQuestions();
+  render();
+}
+async function unmarkAccepted(questionId){
+  const { error } = await sb.from('forum_questions').update({ accepted_answer_id: null }).eq('id', questionId);
+  if(error){ state.err = error.message; }
+  await loadForumQuestions();
+  render();
+}
+
+function forumQuestionRowHtml(q, active){
+  return `
+    <div class="list-row ${active ? 'active' : ''}" onclick="selectQuestion('${q.id}')">
+      <div class="list-row-title">${q.accepted_answer_id ? '✓ ' : ''}${escapeHtml(q.title)}</div>
+      <div class="list-row-meta">${q.answer_count} ${q.answer_count === 1 ? 'answer' : 'answers'} · ${escapeHtml(q.author_name || q.author_email)} · ${fmtDate(q.created_at)}</div>
+    </div>`;
+}
+
+function forumAnswerHtml(ans, question){
+  const isAccepted = question.accepted_answer_id === ans.id;
+  const canModerate = state.session && (ans.author_email === state.session.user.email || isStaff());
+  const isQuestionOwner = state.session && question.author_email === state.session.user.email;
+  return `
+    <div class="forum-answer ${isAccepted ? 'accepted' : ''}">
+      ${isAccepted ? `<div class="accepted-badge">✓ Accepted answer</div>` : ''}
+      <div class="body-text">${escapeHtml(ans.body)}</div>
+      <div class="comment-meta">
+        <span><b>${escapeHtml(ans.author_name || ans.author_email)}</b> · ${fmtDate(ans.created_at)}</span>
+        <span class="comment-meta-actions">
+          ${isQuestionOwner ? (isAccepted
+            ? `<a href="javascript:void(0)" class="toggle-link" onclick="unmarkAccepted('${question.id}')">Unmark accepted</a>`
+            : `<a href="javascript:void(0)" class="toggle-link" onclick="markAccepted('${question.id}','${ans.id}')">Mark as accepted</a>`) : ''}
+          ${canModerate ? `<a href="javascript:void(0)" class="toggle-link" onclick="deleteAnswer('${ans.id}','${question.id}')">Delete</a>` : ''}
+        </span>
+      </div>
+    </div>`;
+}
+
+function forumComposerHtml(){
+  return `
+    <div class="panel">
+      <div class="field">
+        <label>Question title</label>
+        <input type="text" id="forumTitleDraft" placeholder="Ask it in one clear sentence" value="${escapeHtml(state.forumTitleDraft)}">
+      </div>
+      <div class="field">
+        <label>Details</label>
+        <textarea id="forumBodyDraft" placeholder="Add any context that helps others answer well.">${escapeHtml(state.forumBodyDraft)}</textarea>
+      </div>
+      <div class="submit-row">
+        <div class="field-note">Posts immediately — visible to everyone right away.</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost" onclick="closeForumComposer()">Cancel</button>
+          <button class="btn btn-gold" onclick="postQuestion()">Post question</button>
+        </div>
+      </div>
+      ${state.err ? `<div class="hint" style="color:var(--rust);margin-top:10px;text-align:left;">${escapeHtml(state.err)}</div>` : ''}
+    </div>`;
+}
+
+function forumQuestionDetailHtml(q){
+  const sortedAnswers = [...state.forumAnswers].sort((a, b) => {
+    if(a.id === q.accepted_answer_id) return -1;
+    if(b.id === q.accepted_answer_id) return 1;
+    return new Date(a.created_at) - new Date(b.created_at);
+  });
+  const canModerateQuestion = state.session && (q.author_email === state.session.user.email || isStaff());
+  const answersHtml = sortedAnswers.length
+    ? sortedAnswers.map(ans => forumAnswerHtml(ans, q)).join('')
+    : `<p class="hint" style="text-align:left;">No answers yet — be the first to help.</p>`;
+
+  const composer = state.session
+    ? (accountLocked()
+        ? `<div class="field-note" style="margin-top:16px;">${escapeHtml(lockedMessage())}</div>`
+        : `<div class="comment-composer" style="margin-top:20px;">
+             <textarea id="forumAnswerDraft" placeholder="Write an answer...">${escapeHtml(state.forumAnswerDraft || '')}</textarea>
+             <button class="btn btn-gold btn-small" onclick="postAnswer('${q.id}')">Post answer</button>
+           </div>`)
+    : `<p class="hint" style="text-align:left;margin-top:16px;">Sign in above to answer.</p>`;
+
+  return `
+    <article class="detail-article">
+      <h2>${escapeHtml(q.title)}</h2>
+      <div class="byline"><b>${escapeHtml(q.author_name || q.author_email)}</b> · ${fmtDate(q.created_at)}${canModerateQuestion ? ` · <a href="javascript:void(0)" class="toggle-link" onclick="deleteQuestion('${q.id}')">Delete</a>` : ''}</div>
+      <div class="body-text" style="margin-top:18px;">${escapeHtml(q.body)}</div>
+      <div class="comments-heading" style="margin-top:28px;">${sortedAnswers.length} ${sortedAnswers.length === 1 ? 'Answer' : 'Answers'}</div>
+      ${answersHtml}
+      ${composer}
+    </article>`;
+}
+
+function renderForum(main){
+  const questions = getFilteredForumQuestions();
+  const selected = state.forumComposerOpen ? null : questions.find(item => item.id === state.selectedQuestionId) || null;
+
+  const listBody = questions.length
+    ? questions.map(item => forumQuestionRowHtml(item, item.id === state.selectedQuestionId && !state.forumComposerOpen)).join('')
+    : `<div class="empty"><div class="glyph">†</div><p>No questions yet.</p><p>Be the first to ask.</p></div>`;
+
+  const askButton = state.session
+    ? `<button class="btn btn-gold btn-small" onclick="openForumComposer()" style="width:100%;">+ Ask a question</button>`
+    : `<div class="hint" style="margin:0;">Sign in above to ask a question.</div>`;
+
+  const detailHtml = state.forumComposerOpen
+    ? forumComposerHtml()
+    : selected
+      ? `<a class="back-link" onclick="clearQuestionSelection();return false;" href="#">← Back to list</a>${forumQuestionDetailHtml(selected)}`
+      : `<div class="detail-empty"><div class="glyph">†</div><div class="welcome-message">
+          <p class="welcome-heading">Forum</p>
+          <p class="welcome-copy">Ask a question about doctrine, Scripture, or anything you're wrestling with, and let the community weigh in. Anyone can read; signing in lets you ask and answer.</p>
+          <p class="welcome-copy" style="margin-bottom:0;">Select a question on the left, or ask your own.</p>
+        </div></div>`;
+
+  main.innerHTML = `
+    <div class="split ${(state.selectedQuestionId || state.forumComposerOpen) ? 'has-selection' : ''}">
+      <div class="split-list">
+        <div class="feed-tools">
+          ${askButton}
+        </div>
+        <div class="feed-tools" style="border-top:none;">
+          <div class="feed-search-wrap">
+            <input type="search" id="forumSearch" class="feed-search" value="${escapeHtml(state.forumSearchTerm)}" placeholder="Search questions...">
+          </div>
+        </div>
+        ${listBody}
+      </div>
+      <div class="split-detail">${detailHtml}</div>
+    </div>`;
+
+  const fs = document.getElementById('forumSearch');
+  if(fs) fs.oninput = e => { state.forumSearchTerm = e.target.value; renderForum(main); };
+  const ft = document.getElementById('forumTitleDraft');
+  if(ft) ft.oninput = e => state.forumTitleDraft = e.target.value;
+  const fb = document.getElementById('forumBodyDraft');
+  if(fb) fb.oninput = e => state.forumBodyDraft = e.target.value;
+  const fa = document.getElementById('forumAnswerDraft');
+  if(fa) fa.oninput = e => state.forumAnswerDraft = e.target.value;
+}
+
+// ===== Prayer requests =====
+
+async function loadPrayerRequests(){
+  const { data, error } = await sb
+    .from('prayer_requests')
+    .select('*, prayer_responses(reaction_type)')
+    .order('created_at', { ascending: false });
+  if(error){ state.err = error.message; return; }
+  state.prayerRequests = (data || []).map(r => {
+    const counts = {};
+    (r.prayer_responses || []).forEach(resp => {
+      counts[resp.reaction_type] = (counts[resp.reaction_type] || 0) + 1;
+    });
+    const total = (r.prayer_responses || []).length;
+    return { ...r, reaction_counts: counts, reaction_total: total };
+  });
+  state.prayerRequestsLoaded = true;
+}
+
+async function loadPrayerResponseStatus(requestId){
+  if(!state.session) return;
+  const { data } = await sb
+    .from('prayer_responses')
+    .select('reaction_type')
+    .eq('request_id', requestId)
+    .eq('user_id', state.session.user.id)
+    .maybeSingle();
+  state.prayerResponseStatus[requestId] = data ? data.reaction_type : null;
+}
+
+async function reactToPrayer(requestId, reactionType){
+  if(!state.session){
+    state.err = "Sign in above to respond.";
+    render();
+    return;
+  }
+  if(accountLocked()){
+    state.err = lockedMessage();
+    render();
+    return;
+  }
+  const selfId = state.session.user.id;
+  const current = state.prayerResponseStatus[requestId];
+
+  if(current === reactionType){
+    // Clicking the same reaction again removes it.
+    await sb.from('prayer_responses').delete().eq('request_id', requestId).eq('user_id', selfId);
+    state.prayerResponseStatus[requestId] = null;
+  } else {
+    const { error } = await sb.from('prayer_responses')
+      .upsert({ request_id: requestId, user_id: selfId, reaction_type: reactionType }, { onConflict: 'request_id,user_id' });
+    if(error){ state.err = error.message; render(); return; }
+    state.prayerResponseStatus[requestId] = reactionType;
+  }
+  await loadPrayerRequests();
+  render();
+}
+
+function openPrayerComposer(){
+  state.prayerComposerOpen = true;
+  state.selectedPrayerId = null;
+  state.prayerBodyDraft = "";
+  state.err = "";
+  render();
+}
+function closePrayerComposer(){
+  state.prayerComposerOpen = false;
+  render();
+}
+
+async function selectPrayer(id){
+  state.selectedPrayerId = id;
+  state.prayerComposerOpen = false;
+  state.err = "";
+  render();
+  await loadPrayerResponseStatus(id);
+  render();
+}
+function clearPrayerSelection(){
+  state.selectedPrayerId = null;
+  render();
+}
+
+async function postPrayerRequest(){
+  if(!state.session){
+    state.err = "Sign in above to post a prayer request.";
+    render();
+    return;
+  }
+  if(accountLocked()){
+    state.err = lockedMessage();
+    render();
+    return;
+  }
+  const body = state.prayerBodyDraft.trim();
+  if(!body){
+    state.err = "Write your prayer request before posting.";
+    render();
+    return;
+  }
+  state.err = "";
+  const { error } = await sb.from('prayer_requests').insert({
+    body,
+    author_email: state.session.user.email,
+    author_name: displayName()
+  });
+  if(error){
+    state.err = error.message;
+    render();
+    return;
+  }
+  state.prayerComposerOpen = false;
+  state.prayerBodyDraft = "";
+  await loadPrayerRequests();
+  render();
+}
+
+async function deletePrayerRequest(id){
+  const { error } = await sb.from('prayer_requests').delete().eq('id', id);
+  if(error){ state.err = error.message; }
+  if(state.selectedPrayerId === id) state.selectedPrayerId = null;
+  await loadPrayerRequests();
+  render();
+}
+
+function prayerRowHtml(r, active){
+  return `
+    <div class="list-row ${active ? 'active' : ''}" onclick="selectPrayer('${r.id}')">
+      <div class="list-row-title">${escapeHtml((r.body || '').slice(0, 60))}${(r.body||'').length > 60 ? '…' : ''}</div>
+      <div class="list-row-meta">${r.reaction_total} ${r.reaction_total === 1 ? 'reaction' : 'reactions'} · ${escapeHtml(r.author_name || r.author_email)} · ${fmtDate(r.created_at)}</div>
+    </div>`;
+}
+
+function prayerComposerHtml(){
+  return `
+    <div class="panel">
+      <div class="field">
+        <label>Your prayer request</label>
+        <textarea id="prayerBodyDraft" placeholder="Share what's on your heart — the community will be praying with you.">${escapeHtml(state.prayerBodyDraft)}</textarea>
+      </div>
+      <div class="submit-row">
+        <div class="field-note">Posts immediately — visible to everyone right away.</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost" onclick="closePrayerComposer()">Cancel</button>
+          <button class="btn btn-gold" onclick="postPrayerRequest()">Post request</button>
+        </div>
+      </div>
+      ${state.err ? `<div class="hint" style="color:var(--rust);margin-top:10px;text-align:left;">${escapeHtml(state.err)}</div>` : ''}
+    </div>`;
+}
+
+function prayerDetailHtml(r){
+  const myReaction = state.prayerResponseStatus[r.id];
+  const canModerate = state.session && (r.author_email === state.session.user.email || isStaff());
+  const buttons = PRAYER_REACTIONS.map(rx => `
+    <button class="reaction-btn ${myReaction === rx.type ? 'active' : ''}" onclick="reactToPrayer('${r.id}','${rx.type}')" title="${rx.label}">
+      ${rx.emoji} <span>${(r.reaction_counts && r.reaction_counts[rx.type]) || 0}</span>
+    </button>`).join('');
+  return `
+    <article class="detail-article">
+      <div class="byline"><b>${escapeHtml(r.author_name || r.author_email)}</b> · ${fmtDate(r.created_at)}${canModerate ? ` · <a href="javascript:void(0)" class="toggle-link" onclick="deletePrayerRequest('${r.id}')">Delete</a>` : ''}</div>
+      <div class="body-text" style="margin-top:18px;">${escapeHtml(r.body)}</div>
+      <div class="reaction-bar" style="margin-top:24px;">${buttons}</div>
+    </article>`;
+}
+
+function renderPrayers(main){
+  const requests = state.prayerRequests;
+  const selected = state.prayerComposerOpen ? null : requests.find(r => r.id === state.selectedPrayerId) || null;
+
+  const listBody = requests.length
+    ? requests.map(r => prayerRowHtml(r, r.id === state.selectedPrayerId && !state.prayerComposerOpen)).join('')
+    : `<div class="empty"><div class="glyph">†</div><p>No prayer requests yet.</p></div>`;
+
+  const askButton = state.session
+    ? `<button class="btn btn-gold btn-small" onclick="openPrayerComposer()" style="width:100%;">+ Share a prayer request</button>`
+    : `<div class="hint" style="margin:0;">Sign in above to share a request.</div>`;
+
+  const detailHtml = state.prayerComposerOpen
+    ? prayerComposerHtml()
+    : selected
+      ? `<a class="back-link" onclick="clearPrayerSelection();return false;" href="#">← Back to list</a>${prayerDetailHtml(selected)}`
+      : `<div class="detail-empty"><div class="glyph">†</div><div class="welcome-message">
+          <p class="welcome-heading">Prayer Requests</p>
+          <p class="welcome-copy">Share what's weighing on you, and let the community pray with you. Anyone can read; signing in lets you post and respond.</p>
+          <p class="welcome-copy" style="margin-bottom:0;">Select a request on the left, or share your own.</p>
+        </div></div>`;
+
+  main.innerHTML = `
+    <div class="split ${(state.selectedPrayerId || state.prayerComposerOpen) ? 'has-selection' : ''}">
+      <div class="split-list">
+        <div class="feed-tools">${askButton}</div>
+        ${listBody}
+      </div>
+      <div class="split-detail">${detailHtml}</div>
+    </div>`;
+
+  const pb = document.getElementById('prayerBodyDraft');
+  if(pb) pb.oninput = e => state.prayerBodyDraft = e.target.value;
+}
+
+function goToQuestion(id){
+  setView('forum');
+  state.selectedQuestionId = id;
+  loadForumAnswers(id);
+}
+function goToPrayer(id){
+  setView('prayers');
+  state.selectedPrayerId = id;
+  loadPrayerResponseStatus(id);
+}
+
+function homeDashboardHtml(){
+  const articles = state.articles.filter(a => a.status === 'approved').slice(0, 5);
+  const trendingQuestions = [...state.forumQuestions]
+    .sort((a, b) => (b.answer_count - a.answer_count) || (new Date(b.created_at) - new Date(a.created_at)))
+    .slice(0, 5);
+  const latestPrayers = state.prayerRequests.slice(0, 5);
+
+  const articleRows = articles.length
+    ? articles.map(a => `
+        <div class="dash-row" onclick="selectArticle('${a.id}')">
+          <div class="dash-row-title">${escapeHtml(a.title)}</div>
+          <div class="dash-row-meta">${escapeHtml(a.author_name || a.author_email)} · ${fmtDate(a.created_at)}</div>
+        </div>`).join('')
+    : `<p class="hint" style="text-align:left;">No articles published yet.</p>`;
+
+  const questionRows = trendingQuestions.length
+    ? trendingQuestions.map(q => `
+        <div class="dash-row" onclick="goToQuestion('${q.id}')">
+          <div class="dash-row-title">${q.accepted_answer_id ? '✓ ' : ''}${escapeHtml(q.title)}</div>
+          <div class="dash-row-meta">${q.answer_count} ${q.answer_count === 1 ? 'answer' : 'answers'}</div>
+        </div>`).join('')
+    : `<p class="hint" style="text-align:left;">No questions yet.</p>`;
+
+  const prayerRows = latestPrayers.length
+    ? latestPrayers.map(r => `
+        <div class="dash-row" onclick="goToPrayer('${r.id}')">
+          <div class="dash-row-title">${escapeHtml((r.body || '').slice(0, 60))}${(r.body || '').length > 60 ? '…' : ''}</div>
+          <div class="dash-row-meta">${r.reaction_total} ${r.reaction_total === 1 ? 'reaction' : 'reactions'} · ${escapeHtml(r.author_name || r.author_email)}</div>
+        </div>`).join('')
+    : `<p class="hint" style="text-align:left;">No prayer requests yet.</p>`;
+
+  return `
+    <div style="text-align:left;">
+      <p class="welcome-heading">The Flint</p>
+      <p class="welcome-copy">Apostolic oneness articles of faith, questions, and prayer — all in one place. <a href="javascript:void(0)" onclick="setView('about')" style="color:var(--gold);">Learn more about The Flint →</a></p>
+
+      <div class="dash-section">
+        <div class="dash-section-title">Latest Articles</div>
+        ${articleRows}
+      </div>
+      <div class="dash-section">
+        <div class="dash-section-title">Trending Questions</div>
+        ${questionRows}
+      </div>
+      <div class="dash-section">
+        <div class="dash-section-title">Latest Prayer Requests</div>
+        ${prayerRows}
+      </div>
+    </div>`;
+}
+
+function aboutPageHtml(){
+  return `
+    <p class="welcome-heading">The Flint<br>About this site</p>
+    <p class="welcome-copy">The Flint is an apostolic oneness articles‑of‑faith publishing site dedicated to proclaiming the revelation of the One God. This platform exists to strengthen believers, equip ministers, and preserve the doctrine handed down by the apostles. Every article published here aims to uphold biblical truth with clarity, conviction, and reverence.</p>
+    <p class="welcome-copy">At the heart of our faith is the declaration that Jesus Christ is the one God manifest in the flesh. He is the fullness of the Godhead bodily, the visible image of the invisible God, the Father revealed to humanity through the Son. This site stands firmly upon that foundation and invites all who share this conviction to contribute to the growing library of teaching, study, and proclamation.</p>
+    <p class="welcome-copy">Oneness believers may create an account to submit their articles. All submissions are reviewed and approved by the editor before publication. Only articles that uphold apostolic doctrine and sound biblical teaching will be published.</p>
+    <p class="welcome-copy">The Flint is also a community. Readers can react to articles, leave comments, ask and answer questions in the Forum, share prayer requests, and share teachings across social media platforms. Every article becomes a conversation — a place where believers can encourage one another, ask questions, and grow deeper in the truth of the One God.</p>
+    <p class="welcome-copy" style="margin-bottom:0;">May every page deepen your understanding of Jesus Christ, our Lord and Savior, and strengthen your walk in the apostolic faith.</p>`;
 }
 
 function stampHtml(status){
@@ -533,6 +1850,25 @@ function stampMini(status){
   return `<span class="stamp-mini ${status}">${label}</span>`;
 }
 
+function slugify(str){
+  return (str || '')
+    .toString()
+    .normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+}
+
+function shortCode(id){
+  return (id || '').replace(/-/g, '').slice(0, 8);
+}
+
+function articleSlug(a){
+  const parts = [slugify(a.author_name || a.author_email), slugify(a.title)].filter(Boolean);
+  return parts.join('-') + (parts.length ? '-' : '') + shortCode(a.id);
+}
+
 function selectArticle(id){
   state.selectedId = id;
   state.likeCount = 0;
@@ -541,6 +1877,8 @@ function selectArticle(id){
   state.commentDraft = "";
   state.replyTargetId = null;
   state.replyDrafts = {};
+  state.reviewNoteDraft = "";
+  state.translationLang = "";
   state.err = "";
   render();
   if(state.view === 'feed'){
@@ -589,12 +1927,14 @@ async function loadArticleExtras(articleId){
   state.comments = commentsRes.data || [];
   render();
   loadReactionCounts(articleId);
+  setupReactionHandlers();
   const { data: { user } } = await sb.auth.getUser();
-  setupReactionHandlers(articleId, user);
   loadUserReaction(articleId, user);
 }
 
 async function loadReactionCounts(articleId) {
+  // NOTE: PostgREST/supabase-js has no .group() aggregate method, so we pull
+  // the raw rows for this article and tally reaction_type counts client-side.
   const { data, error } = await sb
     .from('reactions')
     .select('reaction_type')
@@ -605,50 +1945,67 @@ async function loadReactionCounts(articleId) {
     return;
   }
 
-  // Count reactions manually
   const counts = {};
-  data.forEach(r => {
-    counts[r.reaction_type] = (counts[r.reaction_type] || 0) + 1;
+  (data || []).forEach(row => {
+    counts[row.reaction_type] = (counts[row.reaction_type] || 0) + 1;
   });
 
-  // Reset all counts to 0
-  document.querySelectorAll('#reaction-bar .reaction-btn span')
-    .forEach(span => span.textContent = 0);
-
-  // Apply counts
-  Object.entries(counts).forEach(([type, count]) => {
-    const span = document.querySelector(
-      `.reaction-btn[data-type="${type}"] span`
-    );
-    if (span) span.textContent = count;
+  document.querySelectorAll('#reaction-bar .reaction-btn').forEach(btn => {
+    const span = btn.querySelector('span');
+    if (span) span.textContent = counts[btn.dataset.type] || 0;
   });
 }
 
 
+// Delegated handler: bound once, so it keeps working even after the
+// #reaction-bar DOM gets replaced by a re-render (e.g. the realtime
+// 'articles-changes' subscription firing render() for anyone's edit).
+let reactionHandlerBound = false;
+function setupReactionHandlers(){
+  if(reactionHandlerBound) return;
+  reactionHandlerBound = true;
 
-async function setupReactionHandlers(articleId, user){
-  if(!user) return;
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('#reaction-bar .reaction-btn[data-type]');
+    if(!btn) return;
 
-  const buttons = document.querySelectorAll('#reaction-bar .reaction-btn');
-  buttons.forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const reactionType = btn.dataset.type;
-      highlightUserReaction(reactionType);
-      const { error } = await sb
-        .from('reactions')
-        .upsert({
-          article_id: articleId,
-          user_id: user.id,
-          reaction_type: reactionType
-        });
+    const articleId = state.selectedId;
+    if(!articleId) return;
 
-      if(error){
-        console.error('Error saving reaction:', error);
-        return;
-      }
+    if(!state.session){
+      state.err = "Sign in above to react.";
+      render();
+      return;
+    }
 
-      loadReactionCounts(articleId);
-    });
+    if(accountLocked()){
+      state.err = lockedMessage();
+      render();
+      return;
+    }
+
+    const { data: { user } } = await sb.auth.getUser();
+    if(!user) return;
+
+    const reactionType = btn.dataset.type;
+    highlightUserReaction(reactionType);
+
+    const { error } = await sb
+      .from('reactions')
+      .upsert({
+        article_id: articleId,
+        user_id: user.id,
+        reaction_type: reactionType
+      }, { onConflict: 'article_id,user_id' });
+
+    if(error){
+      console.error('Error saving reaction:', error);
+      state.err = "Couldn't save that reaction — try again.";
+      render();
+      return;
+    }
+
+    loadReactionCounts(articleId);
   });
 }
 
@@ -663,14 +2020,14 @@ async function loadUserReaction(articleId, user){
     .select('reaction_type')
     .eq('article_id', articleId)
     .eq('user_id', user.id)
-    .single();
+    .maybeSingle();
 
   if(error){
     highlightUserReaction(null);
     return;
   }
 
-  highlightUserReaction(data.reaction_type);
+  highlightUserReaction(data ? data.reaction_type : null);
 }
 
 function highlightUserReaction(reactionType){
@@ -699,10 +2056,36 @@ async function toggleLike(articleId){
   await loadArticleExtras(articleId);
 }
 
+async function setTranslationLang(articleId, lang){
+  state.translationLang = lang;
+  if(!lang){
+    render();
+    return;
+  }
+  const cacheKey = `${articleId}:${lang}`;
+  if(state.translationCache[cacheKey] !== undefined){
+    render();
+    return;
+  }
+  render(); // show "Loading translation…" immediately
+  const { data, error } = await sb
+    .from('translations')
+    .select('translated_title, translated_body')
+    .eq('article_id', articleId)
+    .eq('language_code', lang)
+    .maybeSingle();
+  state.translationCache[cacheKey] = (error || !data) ? null : data;
+  render();
+}
+
 async function shareArticle(id){
   const a = state.articles.find(x => x.id === id);
   const slug = a ? articleSlug(a) : id;
-  const url = window.location.origin + window.location.pathname + '#article-' + slug;
+  // Share the pre-rendered preview page (real og:title/description that
+  // link-preview crawlers can read), not the bare #hash URL — crawlers
+  // never see anything after '#', and never run JS to find out.
+  const basePath = window.location.pathname.replace(/[^/]*$/, '');
+  const url = window.location.origin + basePath + 'a/' + slug + '.html';
   if(navigator.share){
     try { await navigator.share({ title: a ? a.title : 'Article', url }); }
     catch(e) { /* user cancelled — ignore */ }
@@ -722,6 +2105,11 @@ async function shareArticle(id){
 async function postComment(articleId){
   if(!state.session){
     state.err = "Sign in above to comment.";
+    render();
+    return;
+  }
+  if(accountLocked()){
+    state.err = lockedMessage();
     render();
     return;
   }
@@ -783,6 +2171,11 @@ async function postReply(articleId, commentId){
     render();
     return;
   }
+  if(accountLocked()){
+    state.err = lockedMessage();
+    render();
+    return;
+  }
   const parent = state.comments.find(c => c.id === commentId);
   if(!parent){
     state.err = "That comment is no longer available.";
@@ -823,36 +2216,88 @@ function listRowHtml(a, active, statusTag){
 }
 
 function renderSplit(main, items, opts){
-  const listBody = items.length
-    ? items.map(a => opts.rowHtml(a, a.id === state.selectedId)).join('')
-    : `<div class="empty"><div class="glyph">†</div><p>${opts.emptyTitle}</p>${opts.emptySub ? `<p>${opts.emptySub}</p>` : ''}</div>`;
+  let listBody;
+  if(opts.groupBy){
+    const groups = new Map();
+    items.forEach(a => {
+      const key = opts.groupBy(a);
+      if(!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(a);
+    });
+    const order = opts.groupOrder || Array.from(groups.keys());
+    const activeGroup = opts.activeGroup || null;
+    listBody = order
+      .filter(k => groups.has(k) && groups.get(k).length)
+      .map(k => {
+        const groupItems = groups.get(k);
+        const label = (opts.groupLabels && opts.groupLabels[k]) || k;
+        const isActive = activeGroup === k;
+        const showRows = !activeGroup || isActive;
+        const clickAttr = opts.onGroupClick ? ` onclick="${opts.onGroupClick(k)}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${opts.onGroupClick(k)};}" role="button" tabindex="0"` : '';
+        const headerClass = `list-group-header${opts.onGroupClick ? ' list-group-header-clickable' : ''}${isActive ? ' active' : ''}`;
+        return `<div class="${headerClass}"${clickAttr}>${escapeHtml(label)} (${groupItems.length})</div>` +
+          (showRows ? groupItems.map(a => opts.rowHtml(a, a.id === state.selectedId)).join('') : '');
+      }).join('');
+    if(!listBody){
+      listBody = `<div class="empty"><div class="glyph">†</div><p>${opts.emptyTitle}</p>${opts.emptySub ? `<p>${opts.emptySub}</p>` : ''}</div>`;
+    }
+  } else {
+    listBody = items.length
+      ? items.map(a => opts.rowHtml(a, a.id === state.selectedId)).join('')
+      : `<div class="empty"><div class="glyph">†</div><p>${opts.emptyTitle}</p>${opts.emptySub ? `<p>${opts.emptySub}</p>` : ''}</div>`;
+  }
 
   const selected = items.find(a => a.id === state.selectedId) || null;
+  const defaultWelcome = homeDashboardHtml();
   const detailHtml = selected
     ? `<a class="back-link" onclick="clearSelection();return false;" href="#">← Back to list</a>${opts.detailHtml(selected)}`
-    : `<div class="detail-empty"><div class="glyph">†</div><div class="welcome-message">
-        <p class="welcome-heading">The Flint<br>Welcome message</p>
-        <p class="welcome-copy">The Flint is an apostolic oneness articles‑of‑faith publishing site dedicated to proclaiming the revelation of the One God. This platform exists to strengthen believers, equip ministers, and preserve the doctrine handed down by the apostles. Every article published here aims to uphold biblical truth with clarity, conviction, and reverence.</p>
-        <p class="welcome-copy">At the heart of our faith is the declaration that Jesus Christ is the one God manifest in the flesh. He is the fullness of the Godhead bodily, the visible image of the invisible God, the Father revealed to humanity through the Son. This site stands firmly upon that foundation and invites all who share this conviction to contribute to the growing library of teaching, study, and proclamation.</p>
-        <p class="welcome-copy">Oneness believers may create an account to submit their articles. All submissions are reviewed and approved by the editor before publication. Only articles that uphold apostolic doctrine and sound biblical teaching will be published.</p>
-        <p class="welcome-copy">The Flint is also a community. Readers can react to articles, leave comments, and share teachings across social media platforms. Every article becomes a conversation — a place where believers can encourage one another, ask questions, and grow deeper in the truth of the One God.</p>
-        <p class="welcome-copy">As you explore the articles on the left, may every page deepen your understanding of Jesus Christ, our Lord and Savior, and strengthen your walk in the apostolic faith.</p>
-        <p class="welcome-copy" style="margin-bottom:0;">Select an article on the left to begin reading.</p>
-      </div></div>`;
+    : `<div class="detail-empty"><div class="glyph">†</div><div class="welcome-message">${opts.welcomeHtml || defaultWelcome}</div></div>`;
 
   const searchHtml = opts.search ? `
     <div class="feed-tools">
       <div class="feed-search-wrap">
         <input type="search" id="feedSearch" class="feed-search" value="${escapeHtml(state.searchTerm)}" placeholder="Search published articles...">
       </div>
-      <button type="button" id="clearFeedSearch" class="clear-search" ${state.searchTerm ? '' : 'disabled'}>Clear</button>
+      <button type="button" id="clearFeedSearch" class="clear-search" ${(state.searchTerm || state.categoryFilter || state.subcategoryFilter || state.authorFilter) ? '' : 'disabled'}>Clear</button>
+    </div>
+    <div class="feed-filters">
+      <select id="categoryFilter" class="filter-select">
+        <option value="">All categories</option>
+        ${state.categories.map(c => `<option value="${c.id}" ${state.categoryFilter===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
+      </select>
+      <select id="subcategoryFilter" class="filter-select">
+        <option value="">All topics</option>
+        ${state.subcategories.map(s => `<option value="${s.id}" ${state.subcategoryFilter===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}
+      </select>
+      <select id="authorFilter" class="filter-select">
+        <option value="">All authors</option>
+        ${getFeedAuthors().map(n => `<option value="${escapeHtml(n)}" ${state.authorFilter===n?'selected':''}>${escapeHtml(n)}</option>`).join('')}
+      </select>
     </div>` : '';
+
+  // Preserve scroll position across re-renders (e.g. posting a comment,
+  // or simply selecting an article) — a fresh innerHTML rebuild resets
+  // scrollTop on any brand-new DOM node, which otherwise looks like the
+  // page jumping back to the top of the article or the list.
+  const prevDetail = main.querySelector('.split-detail');
+  const prevArticleId = prevDetail ? prevDetail.dataset.articleId : null;
+  const prevDetailScrollTop = prevDetail ? prevDetail.scrollTop : 0;
+
+  const prevList = main.querySelector('.split-list');
+  const prevListScrollTop = prevList ? prevList.scrollTop : 0;
 
   main.innerHTML = `
     <div class="split ${state.selectedId ? 'has-selection' : ''}">
       <div class="split-list">${searchHtml}${listBody}</div>
-      <div class="split-detail">${detailHtml}</div>
+      <div class="split-detail" data-article-id="${selected ? selected.id : ''}">${detailHtml}</div>
     </div>`;
+
+  if(selected && prevArticleId === selected.id){
+    const newDetail = main.querySelector('.split-detail');
+    if(newDetail) newDetail.scrollTop = prevDetailScrollTop;
+  }
+  const newList = main.querySelector('.split-list');
+  if(newList) newList.scrollTop = prevListScrollTop;
 
   if(opts.search){
     const feedSearch = document.getElementById('feedSearch');
@@ -874,20 +2319,60 @@ function renderSplit(main, items, opts){
     if(clearFeedSearch){
       clearFeedSearch.addEventListener('click', () => {
         state.searchTerm = '';
+        state.categoryFilter = '';
+        state.subcategoryFilter = '';
+        state.authorFilter = '';
         render();
       });
     }
+
+    const categoryFilterEl = document.getElementById('categoryFilter');
+    if(categoryFilterEl) categoryFilterEl.onchange = e => { state.categoryFilter = e.target.value; render(); };
+
+    const subcategoryFilterEl = document.getElementById('subcategoryFilter');
+    if(subcategoryFilterEl) subcategoryFilterEl.onchange = e => { state.subcategoryFilter = e.target.value; render(); };
+
+    const authorFilterEl = document.getElementById('authorFilter');
+    if(authorFilterEl) authorFilterEl.onchange = e => { state.authorFilter = e.target.value; render(); };
   }
+}
+
+function categoryTagsHtml(a){
+  const cat = a.category_id ? categoryName(a.category_id) : '';
+  const sub = a.subcategory_id ? subcategoryName(a.subcategory_id) : '';
+  if(!cat && !sub) return '';
+  return `<div class="category-tags">${cat ? `<span class="category-tag">${escapeHtml(cat)}</span>` : ''}${sub ? `<span class="category-tag category-tag-sub">${escapeHtml(sub)}</span>` : ''}</div>`;
 }
 
 function feedDetailHtml(a){
   const canInteract = !!state.session;
   const shareLabel = state.shareCopied === a.id ? 'Link copied!' : 'Share';
+
+  const cacheKey = `${a.id}:${state.translationLang}`;
+  const cached = state.translationLang ? state.translationCache[cacheKey] : undefined;
+  const showTranslation = state.translationLang && cached && cached.translated_body;
+  const displayTitle = showTranslation ? cached.translated_title : a.title;
+  const displayBody = showTranslation ? cached.translated_body : a.body;
+  const translationNote = !state.translationLang ? '' :
+    cached === null
+      ? `<div class="field-note" style="margin-top:8px;">Translation not ready yet for this language — showing the original below. Check back shortly.</div>`
+      : cached === undefined
+        ? `<div class="field-note" style="margin-top:8px;">Loading translation…</div>`
+        : `<div class="field-note" style="margin-top:8px;">Machine-translated — the original is in English.</div>`;
+
   return `
     <article class="detail-article">
-      <h2>${escapeHtml(a.title)}</h2>
+      <div class="translate-bar">
+        <select id="translationSelect" class="filter-select" style="flex:0 0 auto;min-width:150px;">
+          <option value="">Original (English)</option>
+          ${LANGUAGES.map(l => `<option value="${l.code}" ${state.translationLang===l.code?'selected':''}>${l.label}</option>`).join('')}
+        </select>
+      </div>
+      <h2>${escapeHtml(displayTitle)}</h2>
       <div class="byline"><b>${escapeHtml(a.author_name || a.author_email)}</b> · ${fmtDate(a.created_at)}</div>
-      <div class="body-text" style="margin-top:18px;">${escapeHtml(a.body)}</div>
+      ${categoryTagsHtml(a)}
+      ${translationNote}
+      <div class="body-text" style="margin-top:18px;">${escapeHtml(displayBody)}</div>
 
       <div id="reaction-bar" class="reaction-bar">
         <button class="reaction-btn" data-type="amen">👍 <span>0</span></button>
@@ -904,7 +2389,7 @@ function feedDetailHtml(a){
         ${state.comments.length === 0 ? `<div class="hint" style="text-align:left;">No comments yet.</div>` : state.comments.map(c => `
           <div class="comment">
             <div class="comment-meta"><b>${escapeHtml(c.author_name || c.author_email)}</b> · ${fmtDate(c.created_at)}
-              ${(state.session && (c.author_email === state.session.user.email || isEditor())) ? `<a href="javascript:void(0)" class="toggle-link" onclick="deleteComment('${c.id}','${a.id}');return false;">Delete</a>` : ''}
+              ${(state.session && (c.author_email === state.session.user.email || isStaff())) ? `<a href="javascript:void(0)" class="toggle-link" onclick="deleteComment('${c.id}','${a.id}');return false;">Delete</a>` : ''}
             </div>
             <div class="comment-body">${escapeHtml(c.body)}</div>
             ${canInteract ? `<div class="comment-actions"><a href="javascript:void(0)" class="toggle-link" onclick="startReply('${c.id}');return false;">Reply</a></div>` : ''}
@@ -932,6 +2417,7 @@ function deskDetailHtml(a){
       <article class="detail-article">
         <h2>${escapeHtml(a.title || "(untitled draft)")}</h2>
         <div class="byline">Draft · started ${fmtDate(a.created_at)}</div>
+        ${categoryTagsHtml(a)}
         <div class="body-text" style="margin-top:18px;">${a.body ? escapeHtml(a.body) : '<em>No text yet.</em>'}</div>
         <div class="article-actions">
           <button class="btn btn-gold btn-small" onclick="editDraft('${a.id}')">Continue editing</button>
@@ -946,13 +2432,19 @@ function deskDetailHtml(a){
         ${stampHtml(a.status)}
       </div>
       <div class="byline">${fmtDate(a.created_at)}</div>
+      ${categoryTagsHtml(a)}
+      ${a.review_note ? `<div class="review-note-box"><div class="review-note-label">Note from the review${a.status === 'rejected' ? '' : ' — thanks!'}</div><div>${escapeHtml(a.review_note)}</div></div>` : ''}
       <div class="body-text" style="margin-top:18px;">${escapeHtml(a.body)}</div>
     </article>`;
 }
 
 function reviewDetailHtml(a){
   const actions = a.status === 'pending'
-    ? `<div class="article-actions">
+    ? `<div class="review-note-field">
+         <label>Note to the author (optional)</label>
+         <textarea id="reviewNoteDraft" placeholder="e.g. Great message — please add a Scripture citation for the second point before we can publish.">${escapeHtml(state.reviewNoteDraft || '')}</textarea>
+       </div>
+       <div class="article-actions">
          <button class="btn btn-gold" onclick="setStatus('${a.id}','approved')">Approve & publish</button>
          <button class="btn btn-rust" onclick="setStatus('${a.id}','rejected')">Decline</button>
        </div>`
@@ -962,6 +2454,9 @@ function reviewDetailHtml(a){
            <button class="btn btn-rust" onclick="setStatus('${a.id}','pending')">Unpublish</button>
          </div>`
       : '';
+  const existingNote = a.review_note
+    ? `<div class="review-note-box"><div class="review-note-label">Note left with this decision</div><div>${escapeHtml(a.review_note)}</div></div>`
+    : '';
   return `
     <article class="detail-article">
       <div class="article-head" style="margin-bottom:6px;">
@@ -969,163 +2464,11 @@ function reviewDetailHtml(a){
         ${stampHtml(a.status)}
       </div>
       <div class="byline"><b>${escapeHtml(a.author_name || a.author_email)}</b> · ${fmtDate(a.created_at)}</div>
+      ${categoryTagsHtml(a)}
+      ${existingNote}
       <div class="body-text" style="margin-top:18px;">${escapeHtml(a.body)}</div>
       ${actions}
     </article>`;
-}
-
-function readingListItems(list){
-  return Array.isArray(list.items) ? list.items : [];
-}
-
-function readingUrl(url){
-  try{
-    const parsed = new URL(url, window.location.href);
-    return ['http:', 'https:'].includes(parsed.protocol) ? parsed.href : '#';
-  }catch(_error){
-    return '#';
-  }
-}
-
-async function loadReadingLists(){
-  let query = sb.from('reading_lists').select('*').order('updated_at', { ascending: false });
-  if(!isEditor()) query = query.eq('visibility', 'public');
-  const { data, error } = await query;
-  if(error){
-    console.error('Error loading reading lists', error);
-    state.readingListsLoaded = true;
-    return;
-  }
-  state.readingLists = data || [];
-  state.readingListsLoaded = true;
-}
-
-function renderPublicReadingLists(){
-  const publicLists = state.readingLists.filter(list => list.visibility === 'public');
-  if(!publicLists.length){
-    return `<div class="empty"><div class="glyph">†</div><p>No public reading lists yet.</p></div>`;
-  }
-  return publicLists.map(list => `
-    <article class="reading-list">
-      <h2>${escapeHtml(list.name)}</h2>
-      ${list.description ? `<p>${escapeHtml(list.description)}</p>` : ''}
-      <ul>
-        ${readingListItems(list).length ? readingListItems(list).map(item => `
-          <li><a href="${escapeHtml(readingUrl(item.url))}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.name)}</a></li>
-        `).join('') : '<li class="field-note">No articles added yet.</li>'}
-      </ul>
-    </article>`).join('');
-}
-
-function renderReadingListEditor(){
-  if(!isEditor()) return '';
-  const editorLists = state.readingLists;
-  return `
-    <section>
-      <h2 class="reading-list-heading">Manage reading lists</h2>
-      <div class="panel reading-list-create">
-        <div class="field"><label for="newListName">List name</label><input type="text" id="newListName" placeholder="New list name" value="${escapeHtml(state.newListName)}"></div>
-        <div class="field"><label for="newListDescription">Description</label><textarea id="newListDescription" placeholder="Description (optional)">${escapeHtml(state.newListDescription)}</textarea></div>
-        <button class="btn btn-gold" onclick="createReadingList()">Create reading list</button>
-      </div>
-      ${editorLists.length ? editorLists.map(list => `
-        <article class="reading-list-editor" data-id="${escapeHtml(list.id)}">
-          <input type="text" value="${escapeHtml(list.name)}" onchange="renameReadingList('${escapeHtml(list.id)}', this.value)">
-          <textarea onchange="updateReadingListDescription('${escapeHtml(list.id)}', this.value)">${escapeHtml(list.description || '')}</textarea>
-          <label>Visibility:
-            <select onchange="updateReadingListVisibility('${escapeHtml(list.id)}', this.value)">
-              <option value="public" ${list.visibility === 'public' ? 'selected' : ''}>Public</option>
-              <option value="private" ${list.visibility === 'private' ? 'selected' : ''}>Private</option>
-            </select>
-          </label>
-          <ul>
-            ${readingListItems(list).length ? readingListItems(list).map((item, index) => `
-              <li><a href="${escapeHtml(readingUrl(item.url))}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.name)}</a><button class="btn btn-rust btn-small" onclick="removeReadingItem('${escapeHtml(list.id)}', ${index})">Remove</button></li>
-            `).join('') : '<li class="field-note">No articles added yet.</li>'}
-          </ul>
-          <div class="reading-list-editor-actions">
-            <input type="text" placeholder="Article name" class="newItemName">
-            <input type="text" placeholder="Article URL" class="newItemUrl">
-            <button class="btn btn-ghost btn-small" onclick="addReadingItemFromInputs('${escapeHtml(list.id)}', this)">Add item</button>
-            <button class="btn btn-rust btn-small" onclick="deleteReadingList('${escapeHtml(list.id)}')">Delete list</button>
-          </div>
-        </article>`).join('') : '<div class="field-note">Create your first reading list above.</div>'}
-    </section>`;
-}
-
-async function refreshReadingLists(){
-  await loadReadingLists();
-  render();
-}
-
-async function createReadingList(){
-  const name = state.newListName.trim();
-  const description = state.newListDescription.trim();
-  if(!name){
-    state.err = 'Enter a name for the reading list.';
-    render();
-    return;
-  }
-  const { error } = await sb.from('reading_lists').insert({ name, description, items: [], visibility: 'public' });
-  if(error){ state.err = error.message; render(); return; }
-  state.newListName = '';
-  state.newListDescription = '';
-  state.err = '';
-  await refreshReadingLists();
-}
-
-async function updateReadingList(listId, patch){
-  const { error } = await sb.from('reading_lists').update(patch).eq('id', listId);
-  if(error){ state.err = error.message; render(); return false; }
-  state.err = '';
-  await refreshReadingLists();
-  return true;
-}
-
-async function renameReadingList(listId, newName){
-  const name = newName.trim();
-  if(name) await updateReadingList(listId, { name });
-}
-
-async function updateReadingListDescription(listId, description){
-  await updateReadingList(listId, { description: description.trim() });
-}
-
-async function updateReadingListVisibility(listId, visibility){
-  if(['public', 'private'].includes(visibility)) await updateReadingList(listId, { visibility });
-}
-
-async function addReadingItem(listId, name, url){
-  const { data: list, error: fetchError } = await sb.from('reading_lists').select('items').eq('id', listId).single();
-  if(fetchError){ state.err = fetchError.message; render(); return; }
-  const items = Array.isArray(list.items) ? list.items : [];
-  items.push({ name, url });
-  await updateReadingList(listId, { items });
-}
-
-function addReadingItemFromInputs(listId, buttonEl){
-  const container = buttonEl.closest('.reading-list-editor');
-  const nameEl = container.querySelector('.newItemName');
-  const urlEl = container.querySelector('.newItemUrl');
-  const name = nameEl.value.trim();
-  const url = urlEl.value.trim();
-  if(!name || !url || readingUrl(url) === '#') return;
-  addReadingItem(listId, name, url);
-}
-
-async function removeReadingItem(listId, index){
-  const { data: list, error: fetchError } = await sb.from('reading_lists').select('items').eq('id', listId).single();
-  if(fetchError){ state.err = fetchError.message; render(); return; }
-  const items = Array.isArray(list.items) ? [...list.items] : [];
-  items.splice(index, 1);
-  await updateReadingList(listId, { items });
-}
-
-async function deleteReadingList(listId){
-  if(!window.confirm('Delete this reading list?')) return;
-  const { error } = await sb.from('reading_lists').delete().eq('id', listId);
-  if(error){ state.err = error.message; render(); return; }
-  await refreshReadingLists();
 }
 
 function renderAuthBox(){
@@ -1197,7 +2540,8 @@ function renderAuthBox(){
     document.getElementById('nameDraft').onkeydown = e => { if(e.key==='Enter') saveName(); };
     return;
   }
-  const admin = isEditor();
+  const roleLabel = isEditor() ? 'Editor' : isModerator() ? 'Moderator' : 'Contributor';
+  const roleClass = isEditor() ? 'role-admin' : isModerator() ? 'role-mod' : 'role-user';
   let passwordBlock = '';
   if(state.showPasswordSet){
     passwordBlock = `
@@ -1216,7 +2560,7 @@ function renderAuthBox(){
         <div class="seal">${initials(displayName())}</div>
         <div>
           <div class="name">${escapeHtml(displayName())}</div>
-          <div class="${admin ? 'role-admin' : 'role-user'}">${admin ? 'Editor' : 'Contributor'}</div>
+          <div class="${roleClass}">${roleLabel}</div>
         </div>
         <button class="signout" onclick="toggleSetPassword()" style="margin-left:12px;">${state.showPasswordSet ? 'Cancel' : 'Set password'}</button>
         <button class="signout" onclick="handleSignOut()">Sign out</button>
@@ -1229,26 +2573,126 @@ function renderAuthBox(){
   }
 }
 
+function getFilteredPublishedArticles(){
+  let list = state.articles.filter(a => a.status === 'approved');
+
+  if(state.categoryFilter){
+    list = list.filter(a => a.category_id === state.categoryFilter);
+  }
+  if(state.subcategoryFilter){
+    list = list.filter(a => a.subcategory_id === state.subcategoryFilter);
+  }
+  if(state.authorFilter){
+    list = list.filter(a => (a.author_name || a.author_email) === state.authorFilter);
+  }
+
+  const q = state.searchTerm.trim().toLowerCase();
+  if(!q) return list;
+  return list.filter(a => {
+    const haystack = [
+      a.title,
+      a.author_name,
+      a.author_email,
+      a.body
+    ].join(' ').toLowerCase();
+    return haystack.includes(q);
+  });
+}
+
+function getFeedAuthors(){
+  const names = new Set();
+  state.articles.filter(a => a.status === 'approved').forEach(a => {
+    const n = a.author_name || a.author_email;
+    if(n) names.add(n);
+  });
+  return Array.from(names).sort((a, b) => a.localeCompare(b));
+}
+
+function categoryName(id){
+  const c = state.categories.find(x => x.id === id);
+  return c ? c.name : '';
+}
+function subcategoryName(id){
+  const s = state.subcategories.find(x => x.id === id);
+  return s ? s.name : '';
+}
+
+async function loadCategories(){
+  const [{ data: cats, error: catErr }, { data: subs, error: subErr }] = await Promise.all([
+    sb.from('categories').select('*').order('sort_order', { ascending: true }),
+    sb.from('subcategories').select('*').order('sort_order', { ascending: true })
+  ]);
+  if(!catErr) state.categories = cats || [];
+  if(!subErr) state.subcategories = subs || [];
+  state.categoriesLoaded = true;
+}
+
+async function addCategory(){
+  const name = (document.getElementById('newCategoryName').value || '').trim();
+  if(!name) return;
+  const { error } = await sb.from('categories').insert({ name, sort_order: state.categories.length });
+  if(error){ state.err = error.message; }
+  await loadCategories();
+  render();
+}
+async function deleteCategory(id){
+  const { error } = await sb.from('categories').delete().eq('id', id);
+  if(error){ state.err = error.message; }
+  await loadCategories();
+  render();
+}
+async function addSubcategory(){
+  const name = (document.getElementById('newSubcategoryName').value || '').trim();
+  if(!name) return;
+  const { error } = await sb.from('subcategories').insert({ name, sort_order: state.subcategories.length });
+  if(error){ state.err = error.message; }
+  await loadCategories();
+  render();
+}
+async function deleteSubcategory(id){
+  const { error } = await sb.from('subcategories').delete().eq('id', id);
+  if(error){ state.err = error.message; }
+  await loadCategories();
+  render();
+}
+
 function renderNav(){
   const nav = document.getElementById('nav');
   const feedCount = getFilteredPublishedArticles().length;
   if(!state.session || !displayName()){
-    nav.innerHTML = `<button class="${state.view === 'feed' ? 'active' : ''}" onclick="setView('feed')">Feed (${feedCount})</button><button class="${state.view === 'lists' ? 'active' : ''}" onclick="setView('lists')">Reading lists</button>`;
+    nav.innerHTML = `
+      <button class="${state.view==='feed'?'active':''}" onclick="setView('feed')">Feed (${feedCount})</button>
+      <button class="${state.view==='forum'?'active':''}" onclick="setView('forum')">Forum</button>
+      <button class="${state.view==='prayers'?'active':''}" onclick="setView('prayers')">Prayers</button>`;
     return;
   }
-  const admin = isEditor();
+  const staff = isStaff();
   const pendingCount = state.articles.filter(a => a.status === 'pending').length;
   const tabs = [
     {id:'feed', label:`Feed (${feedCount})`},
-    {id:'lists', label:'Reading lists'},
+    {id:'forum', label:'Forum'},
+    {id:'prayers', label:'Prayers'},
     {id:'submit', label:'Submit'},
-    {id:'desk', label:'My desk'}
+    {id:'desk', label:'My desk'},
+    {id:'messages', label:'Messages', count: state.unreadTotal}
   ];
-  if(admin) tabs.push({id:'review', label:'Review desk', count: pendingCount});
+  if(staff){
+    tabs.push({id:'review', label:'Review desk', count: pendingCount});
+  }
+  if(isEditor()){
+    tabs.push({id:'users', label:'User Desk'});
+  }
   nav.innerHTML = tabs.map(t => `
     <button class="${state.view===t.id?'active':''}" onclick="setView('${t.id}')">
       ${t.label}${t.count ? `<span class="count">${t.count}</span>` : ''}
     </button>`).join('');
+}
+
+function goHome(){
+  if(window.location.hash){
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+  }
+  setView('feed');
 }
 
 function setView(v){
@@ -1256,21 +2700,59 @@ function setView(v){
     state.editingArticleId = null;
     state.submitTitle = "";
     state.submitBody = "";
+    state.submitCategoryId = "";
+    state.submitSubcategoryId = "";
     state.draftSaved = false;
+    state.verseLookupOpen = false;
+    state.verseRefDraft = "";
+    state.verseResult = null;
   }
   state.view = v;
   state.selectedId = null;
   state.err = "";
+  state.suspendMenuFor = null;
+  state.selectedThreadId = null;
+  state.selectedQuestionId = null;
+  state.deskGroupFilter = null;
+  state.reviewGroupFilter = null;
+  state.forumComposerOpen = false;
+  state.selectedPrayerId = null;
+  state.prayerComposerOpen = false;
+  render();
+  if(v === 'users' && isEditor()){
+    loadUsers().then(render);
+  }
+  if(v === 'messages' && state.session){
+    if(isStaff()){
+      loadThreads().then(render);
+    } else {
+      loadThread(state.session.user.id).then(render);
+    }
+  }
+  if(v === 'forum'){
+    loadForumQuestions().then(render);
+  }
+  if(v === 'prayers'){
+    loadPrayerRequests().then(render);
+  }
+}
+
+function toggleGroupFilter(scope, key){
+  const field = scope + 'GroupFilter';
+  state[field] = state[field] === key ? null : key;
   render();
 }
 
 function renderBanner(){
   const banner = document.getElementById('banner');
-  if(state.err && state.session && displayName() && state.view !== 'submit'){
-    banner.innerHTML = `<div class="banner-note" style="color:var(--rust);background:var(--rust-dim);">${escapeHtml(state.err)}</div>`;
-  } else {
-    banner.innerHTML = '';
+  const parts = [];
+  if(accountLocked()){
+    parts.push(`<div class="banner-note" style="color:var(--rust);background:var(--rust-dim);">${escapeHtml(lockedMessage())}</div>`);
   }
+  if(state.err && state.session && displayName() && state.view !== 'submit'){
+    parts.push(`<div class="banner-note" style="color:var(--rust);background:var(--rust-dim);">${escapeHtml(state.err)}</div>`);
+  }
+  banner.innerHTML = parts.join('');
 }
 
 function renderMain(){
@@ -1279,16 +2761,20 @@ function renderMain(){
   if(state.view === 'feed'){
     const q = state.searchTerm.trim().toLowerCase();
     const filtered = getFilteredPublishedArticles();
+    const filtersActive = !!(q || state.categoryFilter || state.subcategoryFilter || state.authorFilter);
 
     renderSplit(main, filtered, {
-      emptyTitle: q ? "No published articles match your search." : "No articles published yet.",
-      emptySub: q ? "Try another keyword, author name, or phrase." : "The first approved article of faith will appear here.",
+      emptyTitle: filtersActive ? "No published articles match your filters." : "No articles published yet.",
+      emptySub: filtersActive ? "Try clearing a filter or a different keyword." : "The first approved article of faith will appear here.",
       rowHtml: (a, active) => listRowHtml(a, active),
       detailHtml: feedDetailHtml,
       search: true
     });
     const cd = document.getElementById('commentDraft');
     if(cd) cd.oninput = e => state.commentDraft = e.target.value;
+
+    const ts = document.getElementById('translationSelect');
+    if(ts && state.selectedId) ts.onchange = e => setTranslationLang(state.selectedId, e.target.value);
 
     document.querySelectorAll('[id^="replyInput-"]').forEach((replyInput) => {
       const id = replyInput.id.replace('replyInput-', '');
@@ -1299,22 +2785,22 @@ function renderMain(){
     return;
   }
 
-  if(state.view === 'lists'){
+  if(state.view === 'forum'){
+    renderForum(main);
+    return;
+  }
+
+  if(state.view === 'prayers'){
+    renderPrayers(main);
+    return;
+  }
+
+  if(state.view === 'about'){
     main.innerHTML = `
       <div class="scroll-panel"><div class="narrow">
-        <div class="reading-layout">
-          <section>
-            <h2 class="reading-list-heading">Public reading lists</h2>
-            ${renderPublicReadingLists()}
-          </section>
-          ${renderReadingListEditor()}
-        </div>
-        ${state.err ? `<div class="hint" style="color:var(--rust);text-align:left;margin-top:10px;">${escapeHtml(state.err)}</div>` : ''}
+        <a class="back-link" onclick="setView('feed');return false;" href="#">← Back to Home</a>
+        <div class="welcome-message" style="margin-top:16px;">${aboutPageHtml()}</div>
       </div></div>`;
-    const nameEl = document.getElementById('newListName');
-    const descriptionEl = document.getElementById('newListDescription');
-    if(nameEl) nameEl.oninput = event => state.newListName = event.target.value;
-    if(descriptionEl) descriptionEl.oninput = event => state.newListDescription = event.target.value;
     return;
   }
 
@@ -1330,35 +2816,103 @@ function renderMain(){
   if(state.view === 'submit'){
     const editingArticle = state.editingArticleId ? state.articles.find(x => x.id === state.editingArticleId) : null;
     const editingLive = editingArticle && editingArticle.status !== 'draft';
+    const sidebarOpen = state.verseLookupOpen;
     main.innerHTML = `
-      <div class="scroll-panel"><div class="narrow">
-      <div class="panel">
-        ${state.editingArticleId
-          ? (editingLive
-              ? `<div class="field-note" style="margin-bottom:14px;">Editing a ${editingArticle.status} article — changes save in place, status stays the same. <a href="#" onclick="newSubmission();return false;" style="color:var(--gold);">Start a new article instead</a></div>`
-              : `<div class="field-note" style="margin-bottom:14px;">Editing a saved draft. <a href="#" onclick="newSubmission();return false;" style="color:var(--gold);">Start a new article instead</a></div>`)
-          : ''}
-        <div class="field">
-          <label>Headline</label>
-          <input type="text" id="submitTitle" placeholder="A working title" value="${escapeHtml(state.submitTitle)}">
-        </div>
-        <div class="field">
-          <label>Article</label>
-          <textarea id="submitBody" placeholder="Write the piece here.">${escapeHtml(state.submitBody)}</textarea>
-        </div>
-        <div class="submit-row">
-          <div class="field-note">${editingLive ? "Saves in place — no re-approval needed." : (isEditor() ? "Publishes immediately — you're the editor." : "Goes to the editor for approval before it's published.")}</div>
-          <div style="display:flex;gap:8px;">
-            ${!editingLive ? `<button class="btn btn-ghost" onclick="saveDraft()">Save draft</button>` : ''}
-            <button class="btn btn-gold" onclick="${editingLive ? 'saveArticleEdit()' : 'submitArticle()'}">${editingLive ? 'Save changes' : (isEditor() ? 'Publish' : 'Send for approval')}</button>
+      <div class="scroll-panel"><div class="narrow-wide">
+      ${!state.editingArticleId ? `
+      <div class="submit-intro">
+        <p class="welcome-copy" style="margin-bottom:8px;">Write from conviction, cite Scripture where you can, and keep the focus on the truth being taught rather than on any one personality or ministry.</p>
+        <p class="welcome-copy" style="margin-bottom:0;">Picking a category and topic below helps readers find your piece through the Feed's filters — it's optional, but recommended. You can save a draft any time and come back to finish it later from My Desk.</p>
+      </div>` : ''}
+      <div class="submit-layout">
+        <div class="panel submit-main">
+          ${state.editingArticleId
+            ? (editingLive
+                ? `<div class="field-note" style="margin-bottom:14px;">Editing a ${editingArticle.status} article — changes save in place, status stays the same. <a href="#" onclick="newSubmission();return false;" style="color:var(--gold);">Start a new article instead</a></div>`
+                : `<div class="field-note" style="margin-bottom:14px;">Editing a saved draft. <a href="#" onclick="newSubmission();return false;" style="color:var(--gold);">Start a new article instead</a></div>`)
+            : ''}
+          <div class="field">
+            <label>Headline</label>
+            <input type="text" id="submitTitle" placeholder="A working title" spellcheck="true" lang="en" value="${escapeHtml(state.submitTitle)}">
           </div>
+          <div class="field">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <label style="margin:0;">Article</label>
+              <button type="button" class="btn btn-ghost btn-small" onclick="toggleVerseLookup()">📖 ${sidebarOpen ? 'Hide verse lookup' : 'Bible verse lookup'}</button>
+            </div>
+            <textarea id="submitBody" placeholder="Write the piece here." spellcheck="true" lang="en">${escapeHtml(state.submitBody)}</textarea>
+            <div class="word-count" id="wordCountDisplay">${wordCount(state.submitBody)} words</div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Category</label>
+              <select id="submitCategory">
+                <option value="">— None —</option>
+                ${state.categories.map(c => `<option value="${c.id}" ${state.submitCategoryId===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
+              </select>
+            </div>
+            <div class="field">
+              <label>Topic</label>
+              <select id="submitSubcategory">
+                <option value="">— None —</option>
+                ${state.subcategories.map(s => `<option value="${s.id}" ${state.submitSubcategoryId===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div class="submit-row">
+            <div class="field-note">${editingLive ? "Saves in place — no re-approval needed." : (isStaff() ? "Publishes immediately — you have review privileges." : "Goes to the editor for approval before it's published.")}</div>
+            <div style="display:flex;gap:8px;">
+              ${!editingLive ? `<button class="btn btn-ghost" onclick="saveDraft()">Save draft</button>` : ''}
+              <button class="btn btn-gold" onclick="${editingLive ? 'saveArticleEdit()' : 'submitArticle()'}">${editingLive ? 'Save changes' : (isStaff() ? 'Publish' : 'Send for approval')}</button>
+            </div>
+          </div>
+          ${state.draftSaved ? `<div class="hint" style="color:var(--green);margin-top:10px;text-align:left;">Draft saved — only visible to you until you submit it.</div>` : ''}
+          ${state.err ? `<div class="hint" style="color:var(--rust);margin-top:10px;text-align:left;">${escapeHtml(state.err)}</div>` : ''}
         </div>
-        ${state.draftSaved ? `<div class="hint" style="color:var(--green);margin-top:10px;text-align:left;">Draft saved — only visible to you until you submit it.</div>` : ''}
-        ${state.err ? `<div class="hint" style="color:var(--rust);margin-top:10px;text-align:left;">${escapeHtml(state.err)}</div>` : ''}
+        ${sidebarOpen ? `
+        <div class="submit-sidebar">
+          <div class="panel">
+            <div class="field-note" style="margin-bottom:10px;text-transform:uppercase;letter-spacing:0.08em;">📖 Bible Verse Lookup (KJV)</div>
+            <div style="display:flex;gap:8px;">
+              <input type="text" id="verseRefDraft" placeholder="e.g. John 3:16" value="${escapeHtml(state.verseRefDraft)}" style="flex:1;">
+              <button type="button" class="btn btn-gold btn-small" onclick="lookupVerse()">Look up</button>
+            </div>
+            ${state.verseResult === 'loading' ? `<div class="hint" style="text-align:left;margin-top:8px;">Looking up…</div>` : ''}
+            ${state.verseResult === 'error' ? `<div class="hint" style="text-align:left;margin-top:8px;color:var(--rust);">Couldn't find that reference — check the spelling (e.g. "John 3:16" or "1 Corinthians 13:4-7").</div>` : ''}
+            ${(state.verseResult && state.verseResult !== 'loading' && state.verseResult !== 'error') ? `
+              <div class="verse-result">
+                <div class="verse-text">"${escapeHtml(state.verseResult.text)}"</div>
+                <div class="verse-ref">${escapeHtml(state.verseResult.reference)} (KJV)</div>
+                <button type="button" class="btn btn-gold btn-small" onclick="insertVerse()" style="margin-top:8px;">Insert into article</button>
+              </div>` : ''}
+            ${!state.verseResult ? `<div class="hint" style="text-align:left;margin-top:10px;">Look up any reference and insert it at your cursor whenever you need it — this panel stays open while you write.</div>` : ''}
+          </div>
+        </div>` : ''}
       </div>
       </div></div>`;
-    document.getElementById('submitTitle').oninput = e => { state.submitTitle = e.target.value; state.draftSaved = false; };
-    document.getElementById('submitBody').oninput = e => { state.submitBody = e.target.value; state.draftSaved = false; };
+    document.getElementById('submitTitle').oninput = e => {
+      const pos = e.target.selectionStart;
+      const upper = e.target.value.toUpperCase();
+      if(e.target.value !== upper){
+        e.target.value = upper;
+        e.target.selectionStart = e.target.selectionEnd = pos;
+      }
+      state.submitTitle = upper;
+      state.draftSaved = false;
+    };
+    document.getElementById('submitBody').oninput = e => {
+      state.submitBody = e.target.value;
+      state.draftSaved = false;
+      const wc = document.getElementById('wordCountDisplay');
+      if(wc) wc.textContent = wordCount(state.submitBody) + ' words';
+    };
+    document.getElementById('submitCategory').onchange = e => { state.submitCategoryId = e.target.value; state.draftSaved = false; };
+    document.getElementById('submitSubcategory').onchange = e => { state.submitSubcategoryId = e.target.value; state.draftSaved = false; };
+    const vr = document.getElementById('verseRefDraft');
+    if(vr){
+      vr.oninput = e => state.verseRefDraft = e.target.value;
+      vr.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); lookupVerse(); } };
+    }
     return;
   }
 
@@ -1367,24 +2921,68 @@ function renderMain(){
     renderSplit(main, mine, {
       emptyTitle: "Nothing submitted yet.",
       emptySub: "Head to Submit to write your first article of faith.",
-      rowHtml: (a, active) => listRowHtml(a, active, stampMini(a.status) + ' · '),
-      detailHtml: deskDetailHtml
+      rowHtml: (a, active) => listRowHtml(a, active),
+      detailHtml: deskDetailHtml,
+      groupBy: a => a.status,
+      groupOrder: ['draft', 'pending', 'approved', 'rejected'],
+      groupLabels: { draft: 'Drafts', pending: 'Under Review', approved: 'Published', rejected: 'Declined' },
+      activeGroup: state.deskGroupFilter,
+      onGroupClick: (k) => `toggleGroupFilter('desk','${k}')`,
+      welcomeHtml: `
+        <p class="welcome-heading">My Desk</p>
+        <p class="welcome-copy">This is your personal writing desk — every article you've submitted lives here, whatever its stage: saved drafts only you can see, pieces waiting on the editor's review, published articles, and anything that was sent back with notes.</p>
+        <p class="welcome-copy">Select any piece on the left to read it, check its status, or make edits. Drafts can be edited freely before you submit them; once something is live, edits save in place without needing re-approval.</p>
+        <p class="welcome-copy" style="margin-bottom:0;">Ready to start something new? Head to the Submit tab.</p>`
     });
     return;
   }
 
   if(state.view === 'review'){
-    if(!isEditor()){
-      main.innerHTML = `<div class="scroll-panel"><div class="narrow"><div class="locked-msg"><div class="glyph">†</div><p>This desk is for the editor only.</p></div></div></div>`;
+    if(!isStaff()){
+      main.innerHTML = `<div class="scroll-panel"><div class="narrow"><div class="locked-msg"><div class="glyph">†</div><p>This desk is for the editor and moderators only.</p></div></div></div>`;
       return;
     }
     const pending = state.articles.filter(a => a.status === 'pending');
     const published = state.articles.filter(a => a.status === 'approved');
     renderSplit(main, [...pending, ...published], {
       emptyTitle: "Nothing to review yet.",
-      rowHtml: (a, active) => listRowHtml(a, active, stampMini(a.status) + ' · '),
-      detailHtml: reviewDetailHtml
+      rowHtml: (a, active) => listRowHtml(a, active),
+      detailHtml: reviewDetailHtml,
+      groupBy: a => a.status,
+      groupOrder: ['pending', 'approved'],
+      groupLabels: { pending: 'For Review', approved: 'Published' },
+      activeGroup: state.reviewGroupFilter,
+      onGroupClick: (k) => `toggleGroupFilter('review','${k}')`,
+      welcomeHtml: `
+        <p class="welcome-heading">Review Desk</p>
+        <p class="welcome-copy">This is your editorial queue. Every article waiting on a decision, plus everything already published, shows up on the left — pending pieces first, so nothing sits unreviewed for long.</p>
+        <p class="welcome-copy">Select a piece to read it in full, then approve, decline, or edit it directly before publishing. Approving makes it public on the Feed immediately; declining sends it back to the contributor's desk with the piece marked as declined.</p>
+        <p class="welcome-copy" style="margin-bottom:0;">Managing contributors instead? That's over in User Desk.</p>`
     });
+    const rn = document.getElementById('reviewNoteDraft');
+    if(rn) rn.oninput = e => state.reviewNoteDraft = e.target.value;
+    return;
+  }
+
+  if(state.view === 'messages'){
+    if(!state.session || !displayName()){
+      main.innerHTML = `<div class="scroll-panel"><div class="narrow"><div class="locked-msg"><div class="glyph">†</div><p>Sign in to view messages.</p></div></div></div>`;
+      return;
+    }
+    if(isStaff()){
+      renderMessagesInbox(main);
+    } else {
+      renderMyThread(main);
+    }
+    return;
+  }
+
+  if(state.view === 'users'){
+    if(!isEditor()){
+      main.innerHTML = `<div class="scroll-panel"><div class="narrow"><div class="locked-msg"><div class="glyph">†</div><p>This desk is for the editor only.</p></div></div></div>`;
+      return;
+    }
+    renderUsersDashboard(main);
     return;
   }
 }
@@ -1399,8 +2997,12 @@ function render(){
 async function init(){
   const { data: { session } } = await sb.auth.getSession();
   state.session = session;
+  await loadOwnProfile();
   await loadArticles();
-  await loadReadingLists();
+  await loadUnreadTotal();
+  await loadCategories();
+  await loadForumQuestions();
+  await loadPrayerRequests();
   openArticleFromHash();
   render();
 
@@ -1409,8 +3011,9 @@ async function init(){
   sb.auth.onAuthStateChange(async (_event, session) => {
     state.session = session;
     state.magicLinkSent = false;
+    await loadOwnProfile();
     await loadArticles();
-    await loadReadingLists();
+    await loadUnreadTotal();
     render();
     if(state.view === 'feed' && state.selectedId){
       await loadArticleExtras(state.selectedId);
@@ -1421,6 +3024,52 @@ async function init(){
     .on('postgres_changes', { event: '*', schema: 'public', table: 'articles' }, async () => {
       await loadArticles();
       render();
+    })
+    .subscribe();
+
+  sb.channel('messages-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, async () => {
+      await loadUnreadTotal();
+      if(state.view === 'messages' && state.session){
+        if(isStaff()){
+          await loadThreads();
+          if(state.selectedThreadId) await loadThread(state.selectedThreadId);
+        } else {
+          await loadThread(state.session.user.id);
+        }
+      }
+      render();
+    })
+    .subscribe();
+
+  sb.channel('forum-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'forum_questions' }, async () => {
+      if(state.view === 'forum' || state.view === 'feed'){
+        await loadForumQuestions();
+        render();
+      }
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'forum_answers' }, async () => {
+      if(state.view === 'forum' || state.view === 'feed'){
+        await loadForumQuestions();
+        if(state.selectedQuestionId) await loadForumAnswers(state.selectedQuestionId);
+        render();
+      }
+    })
+    .subscribe();
+
+  sb.channel('prayer-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'prayer_requests' }, async () => {
+      if(state.view === 'prayers' || state.view === 'feed'){
+        await loadPrayerRequests();
+        render();
+      }
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'prayer_responses' }, async () => {
+      if(state.view === 'prayers' || state.view === 'feed'){
+        await loadPrayerRequests();
+        render();
+      }
     })
     .subscribe();
 }
