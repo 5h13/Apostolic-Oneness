@@ -246,6 +246,45 @@
     .split.has-selection .split-detail{display:block;}
     .back-link{display:inline-block;}
   }
+  /* ===== The Flint Academy — distinct visual theme ===== */
+  .academy-theme{--ac-grad-a:#4b134f;--ac-grad-b:#2a5298;}
+  .academy-hero{background:linear-gradient(to bottom right, var(--ac-grad-a), var(--ac-grad-b));color:#fff;padding:36px 28px;border-radius:12px;margin-bottom:20px;}
+  .academy-hero-title{font-family:'Fraunces',serif;font-size:28px;font-weight:600;}
+  .academy-hero-sub{margin-top:8px;font-size:14px;opacity:0.92;}
+  .academy-back{display:inline-block;margin-bottom:12px;color:#fff;opacity:0.85;text-decoration:none;font-size:13px;}
+  .academy-back:hover{opacity:1;}
+  .academy-body{max-width:900px;margin:0 auto;padding:0 20px 60px;}
+  .academy-subject{margin-bottom:28px;}
+  .academy-subject-title{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ac-grad-b);border-bottom:1px solid var(--ink-line);padding-bottom:8px;margin-bottom:14px;}
+  .academy-course-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;}
+  .academy-card{background:var(--ink-800);border:1px solid var(--ink-line);border-radius:10px;padding:18px;}
+  .academy-card-title{font-weight:600;margin-bottom:6px;}
+  .academy-card-desc{font-size:13px;color:var(--slate);margin-bottom:14px;line-height:1.5;}
+  .academy-section{margin-bottom:22px;}
+  .academy-section-title{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ac-grad-b);margin-bottom:8px;}
+  .academy-lesson-row{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--ink-800);border:1px solid var(--ink-line);border-radius:8px;margin-bottom:6px;cursor:pointer;}
+  .academy-lesson-row:hover{border-color:var(--ac-grad-b);}
+  .academy-lesson-row.is-locked{opacity:0.5;cursor:not-allowed;}
+  .academy-lesson-row.completed .academy-lesson-icon{color:#8bb26e;}
+  .academy-lesson-icon{font-size:15px;width:18px;text-align:center;}
+  .academy-lesson-title{flex:1;}
+  .academy-lesson-type{font-size:11px;color:var(--slate);font-family:'IBM Plex Mono',monospace;}
+  .academy-score{color:var(--ac-grad-b);font-weight:600;}
+  .academy-lesson-content{line-height:1.75;}
+  .academy-lesson-content h2{color:var(--ac-grad-b);margin-top:28px;}
+  .academy-lesson-content h3{color:#8a5fa8;margin-top:18px;}
+  .academy-quiz-question{margin-bottom:20px;padding:14px;background:var(--ink-800);border-radius:8px;}
+  .academy-quiz-prompt{font-weight:600;margin-bottom:8px;}
+  .academy-quiz-option{display:block;padding:6px 0;cursor:pointer;}
+  .academy-quiz-result{padding:16px;border-radius:8px;margin-top:10px;}
+  .academy-quiz-result.passed{background:rgba(139,178,110,0.12);border:1px solid #8bb26e;}
+  .academy-quiz-result.failed{background:rgba(180,80,80,0.12);border:1px solid var(--rust);}
+  .academy-quiz-score{font-size:22px;font-weight:700;margin-bottom:6px;}
+  .academy-certificate{background:#fff;color:#222;border:3px solid var(--ac-grad-b);border-radius:12px;padding:50px 30px;text-align:center;max-width:640px;margin:20px auto;}
+  .academy-cert-title{font-family:'Fraunces',serif;font-size:26px;font-weight:700;margin-bottom:20px;}
+  .academy-cert-name{font-size:24px;font-weight:600;border-bottom:2px solid #333;display:inline-block;padding:0 20px 8px;margin-bottom:20px;}
+  .academy-cert-body{font-size:16px;line-height:1.6;margin-bottom:20px;}
+  .academy-cert-date{font-size:14px;color:#555;}
 </style>
 </head>
 <body>
@@ -344,7 +383,21 @@ let state = {
   prayerResponseStatus: {},
   verseLookupOpen: false,
   verseRefDraft: "",
-  verseResult: null
+  verseResult: null,
+  academyView: 'home',
+  academySubjects: [],
+  academyCourses: [],
+  academyLessons: [],
+  academyProgress: {},
+  academyEnrollments: {},
+  academyCertificates: {},
+  academySelectedCourseId: null,
+  academySelectedLessonId: null,
+  academyQuizQuestions: [],
+  academyQuizAnswers: {},
+  academyQuizResult: null,
+  academyEssayDraft: "",
+  academyEssayResult: null
 };
 
 // Keep this in sync with DESIRED_LANGUAGES in scripts/generate-translations.mjs
@@ -1840,6 +1893,345 @@ function aboutPageHtml(){
     <p class="welcome-copy" style="margin-bottom:0;">May every page deepen your understanding of Jesus Christ, our Lord and Savior, and strengthen your walk in the apostolic faith.</p>`;
 }
 
+// ===== The Flint Academy =====
+
+async function loadAcademyCatalog(){
+  const { data: subjects } = await sb.from('academy_subjects').select('*').order('sort_order');
+  const { data: courses } = await sb.from('academy_courses').select('*').eq('status', 'published').order('sort_order');
+  state.academySubjects = subjects || [];
+  state.academyCourses = courses || [];
+
+  if(state.session){
+    const { data: enrollments } = await sb.from('academy_enrollments').select('*').eq('user_id', state.session.user.id);
+    state.academyEnrollments = {};
+    (enrollments || []).forEach(e => { state.academyEnrollments[e.course_id] = e; });
+
+    const { data: certs } = await sb.from('academy_certificates').select('*').eq('user_id', state.session.user.id);
+    state.academyCertificates = {};
+    (certs || []).forEach(c => { state.academyCertificates[c.course_id] = c; });
+  }
+}
+
+async function loadAcademyCourseDetail(courseId){
+  const { data: lessons } = await sb.from('academy_lessons').select('*').eq('course_id', courseId).order('sort_order');
+  state.academyLessons = lessons || [];
+
+  if(state.session){
+    const lessonIds = state.academyLessons.map(l => l.id);
+    if(lessonIds.length){
+      const { data: progress } = await sb.from('academy_lesson_progress')
+        .select('*').eq('user_id', state.session.user.id).in('lesson_id', lessonIds);
+      state.academyProgress = {};
+      (progress || []).forEach(p => { state.academyProgress[p.lesson_id] = p; });
+    }
+  }
+}
+
+function academyLessonStatus(lessonId){
+  const p = state.academyProgress[lessonId];
+  return p ? p.status : 'locked';
+}
+
+async function enrollInAcademyCourse(courseId){
+  if(!state.session){
+    state.err = "Sign in above to enroll.";
+    render();
+    return;
+  }
+  const { error } = await sb.rpc('academy_enroll', { p_course_id: courseId });
+  if(error){ state.err = error.message; render(); return; }
+  await loadAcademyCatalog();
+  await openAcademyCourse(courseId);
+}
+
+async function openAcademyCourse(courseId){
+  state.academySelectedCourseId = courseId;
+  state.academyView = 'course';
+  state.err = "";
+  render();
+  await loadAcademyCourseDetail(courseId);
+  render();
+}
+
+function goToAcademyHome(){
+  state.academyView = 'home';
+  state.academySelectedCourseId = null;
+  state.academySelectedLessonId = null;
+  render();
+}
+
+function backToAcademyCourse(){
+  state.academyView = 'course';
+  state.academySelectedLessonId = null;
+  state.academyQuizResult = null;
+  state.academyEssayResult = null;
+  render();
+}
+
+async function openAcademyLesson(lessonId){
+  const status = academyLessonStatus(lessonId);
+  if(status === 'locked'){
+    state.err = "Complete the previous lesson first.";
+    render();
+    return;
+  }
+  state.academySelectedLessonId = lessonId;
+  state.academyView = 'lesson';
+  state.academyQuizAnswers = {};
+  state.academyQuizResult = null;
+  state.academyEssayDraft = "";
+  state.academyEssayResult = null;
+  state.err = "";
+  render();
+
+  const lesson = state.academyLessons.find(l => l.id === lessonId);
+  if(lesson && lesson.type === 'summary_quiz'){
+    const { data } = await sb.from('academy_quiz_questions').select('*').eq('lesson_id', lessonId).order('sort_order');
+    state.academyQuizQuestions = data || [];
+    render();
+  }
+}
+
+async function submitAcademyQuiz(){
+  const lessonId = state.academySelectedLessonId;
+  const answers = {};
+  state.academyQuizQuestions.forEach(q => {
+    if(state.academyQuizAnswers[q.id]) answers[q.id] = state.academyQuizAnswers[q.id];
+  });
+  if(Object.keys(answers).length < state.academyQuizQuestions.length){
+    state.err = "Answer every question before submitting.";
+    render();
+    return;
+  }
+  state.err = "";
+  const { data, error } = await sb.rpc('academy_submit_quiz', { p_lesson_id: lessonId, p_answers: answers });
+  if(error){ state.err = error.message; render(); return; }
+  state.academyQuizResult = data;
+  await loadAcademyCourseDetail(state.academySelectedCourseId);
+  render();
+}
+
+async function submitAcademyChapterRead(){
+  const lessonId = state.academySelectedLessonId;
+  const { error } = await sb.rpc('academy_complete_chapter', { p_lesson_id: lessonId });
+  if(error){ state.err = error.message; render(); return; }
+  await loadAcademyCourseDetail(state.academySelectedCourseId);
+  backToAcademyCourse();
+}
+
+async function submitAcademyEssay(){
+  const lessonId = state.academySelectedLessonId;
+  const body = state.academyEssayDraft.trim();
+  if(!body){
+    state.err = "Write your reflection before submitting.";
+    render();
+    return;
+  }
+  state.err = "";
+  const { data, error } = await sb.rpc('academy_submit_essay', { p_lesson_id: lessonId, p_body: body });
+  if(error){ state.err = error.message; render(); return; }
+  if(data && data.error){
+    state.academyEssayResult = data;
+    render();
+    return;
+  }
+  state.academyEssayResult = data;
+  await loadAcademyCatalog();
+  await loadAcademyCourseDetail(state.academySelectedCourseId);
+  render();
+}
+
+function academyWordCount(text){
+  const t = (text || '').trim();
+  return t ? t.split(/\s+/).length : 0;
+}
+
+function renderAcademy(main){
+  main.innerHTML = `<div class="academy-theme" id="academyRoot"></div>`;
+  const root = document.getElementById('academyRoot');
+  if(state.academyView === 'course' && state.academySelectedCourseId){
+    renderAcademyCourse(root);
+  } else if(state.academyView === 'lesson' && state.academySelectedLessonId){
+    renderAcademyLesson(root);
+  } else if(state.academyView === 'certificate' && state.academySelectedCourseId){
+    renderAcademyCertificate(root);
+  } else {
+    renderAcademyHome(root);
+  }
+}
+
+function renderAcademyHome(root){
+  const subjectsHtml = state.academySubjects.map(subj => {
+    const courses = state.academyCourses.filter(c => c.subject_id === subj.id);
+    const courseCards = courses.map(c => {
+      const enrollment = state.academyEnrollments[c.id];
+      const cert = state.academyCertificates[c.id];
+      let actionHtml;
+      if(cert){
+        actionHtml = `<button class="btn btn-gold btn-small" onclick="state.academySelectedCourseId='${c.id}';state.academyView='certificate';render();">View Certificate</button>`;
+      } else if(enrollment){
+        actionHtml = `<button class="btn btn-gold btn-small" onclick="openAcademyCourse('${c.id}')">Continue</button>`;
+      } else {
+        actionHtml = `<button class="btn btn-gold btn-small" onclick="enrollInAcademyCourse('${c.id}')">Enroll</button>`;
+      }
+      return `
+        <div class="academy-card">
+          <div class="academy-card-title">${escapeHtml(c.title)}</div>
+          <div class="academy-card-desc">${escapeHtml(c.description || '')}</div>
+          ${actionHtml}
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="academy-subject">
+        <div class="academy-subject-title">${escapeHtml(subj.title)}</div>
+        <div class="academy-course-grid">${courseCards}</div>
+      </div>`;
+  }).join('');
+
+  root.innerHTML = `
+    <div class="academy-hero">
+      <div class="academy-hero-title">The Flint Academy</div>
+      <div class="academy-hero-sub">Structured courses in apostolic doctrine and ministry formation.</div>
+    </div>
+    <div class="academy-body">
+      ${state.session ? '' : `<div class="hint" style="text-align:left;margin-bottom:16px;">Sign in above to enroll and track your progress.</div>`}
+      ${subjectsHtml || `<p class="hint">No courses published yet.</p>`}
+    </div>`;
+}
+
+function renderAcademyCourse(root){
+  const course = state.academyCourses.find(c => c.id === state.academySelectedCourseId);
+  if(!course){ root.innerHTML = `<p class="hint">Course not found.</p>`; return; }
+
+  const sections = {};
+  state.academyLessons.forEach(l => {
+    if(!sections[l.section_number]) sections[l.section_number] = [];
+    sections[l.section_number].push(l);
+  });
+
+  const typeLabel = (l) => l.type === 'chapter' ? `Chapter ${l.chapter_number}` : l.type === 'essay' ? 'Essay' : 'Quiz';
+  const statusIcon = (status) => status === 'completed' ? '✓' : status === 'unlocked' ? '○' : '🔒';
+
+  const sectionsHtml = Object.keys(sections).sort((a,b) => a - b).map(secNum => {
+    const rows = sections[secNum].map(l => {
+      const status = academyLessonStatus(l.id);
+      const clickable = status !== 'locked';
+      const scoreTag = state.academyProgress[l.id] && state.academyProgress[l.id].score != null
+        ? ` <span class="academy-score">${state.academyProgress[l.id].score}%</span>` : '';
+      return `
+        <div class="academy-lesson-row ${status} ${clickable ? '' : 'is-locked'}" ${clickable ? `onclick="openAcademyLesson('${l.id}')"` : ''}>
+          <span class="academy-lesson-icon">${statusIcon(status)}</span>
+          <span class="academy-lesson-title">${escapeHtml(l.title)}</span>
+          <span class="academy-lesson-type">${typeLabel(l)}${scoreTag}</span>
+        </div>`;
+    }).join('');
+    return `
+      <div class="academy-section">
+        <div class="academy-section-title">Section ${secNum}</div>
+        ${rows}
+      </div>`;
+  }).join('');
+
+  root.innerHTML = `
+    <div class="academy-hero">
+      <a class="academy-back" onclick="goToAcademyHome();return false;" href="#">← Academy Home</a>
+      <div class="academy-hero-title">${escapeHtml(course.title)}</div>
+      <div class="academy-hero-sub">${escapeHtml(course.description || '')}</div>
+    </div>
+    <div class="academy-body">
+      ${state.err ? `<div class="hint" style="color:var(--rust);text-align:left;margin-bottom:14px;">${escapeHtml(state.err)}</div>` : ''}
+      ${sectionsHtml}
+    </div>`;
+}
+
+function renderAcademyLesson(root){
+  const lesson = state.academyLessons.find(l => l.id === state.academySelectedLessonId);
+  if(!lesson){ root.innerHTML = `<p class="hint">Lesson not found.</p>`; return; }
+
+  let bodyHtml = '';
+
+  if(lesson.type === 'chapter'){
+    bodyHtml = `
+      <div class="academy-lesson-content">${lesson.html_content}</div>
+      <button class="btn btn-gold" onclick="submitAcademyChapterRead()" style="margin-top:24px;">Mark as Read — Continue</button>`;
+  } else if(lesson.type === 'summary_quiz'){
+    if(state.academyQuizResult){
+      const r = state.academyQuizResult;
+      bodyHtml = `
+        <div class="academy-quiz-result ${r.passed ? 'passed' : 'failed'}">
+          <div class="academy-quiz-score">${r.correct} / ${r.total} (${r.percent}%)</div>
+          <div>${r.passed ? 'You passed! The next lesson is now unlocked.' : `You need ${lesson.pass_percent}% to pass — review the chapter and try again.`}</div>
+        </div>
+        <div style="margin-top:16px;display:flex;gap:8px;">
+          ${r.passed ? `<button class="btn btn-gold" onclick="backToAcademyCourse()">Back to Course</button>`
+                     : `<button class="btn btn-ghost" onclick="openAcademyLesson('${lesson.id}')">Retry Quiz</button>`}
+        </div>`;
+    } else {
+      const questionsHtml = state.academyQuizQuestions.map((q, i) => `
+        <div class="academy-quiz-question">
+          <div class="academy-quiz-prompt">${i+1}. ${escapeHtml(q.prompt)}</div>
+          ${q.options.map(opt => `
+            <label class="academy-quiz-option">
+              <input type="radio" name="academyq_${q.id}" onclick="state.academyQuizAnswers['${q.id}']='${opt.key}'">
+              ${escapeHtml(opt.text)}
+            </label>`).join('')}
+        </div>`).join('');
+      bodyHtml = `
+        <form onsubmit="return false;">${questionsHtml}</form>
+        ${state.err ? `<div class="hint" style="color:var(--rust);text-align:left;margin:10px 0;">${escapeHtml(state.err)}</div>` : ''}
+        <button class="btn btn-gold" onclick="submitAcademyQuiz()" style="margin-top:10px;">Submit Quiz</button>`;
+    }
+  } else if(lesson.type === 'essay'){
+    if(state.academyEssayResult && state.academyEssayResult.success){
+      bodyHtml = `
+        <div class="academy-quiz-result passed">Essay submitted (${state.academyEssayResult.word_count} words).</div>
+        <button class="btn btn-gold" onclick="backToAcademyCourse()" style="margin-top:16px;">Back to Course</button>`;
+    } else {
+      bodyHtml = `
+        <p class="body-text">${escapeHtml(lesson.essay_prompt)}</p>
+        <textarea id="academyEssayInput" placeholder="Write your reflection here...">${escapeHtml(state.academyEssayDraft)}</textarea>
+        <div class="word-count" id="academyWordCount">${academyWordCount(state.academyEssayDraft)} words (need ${lesson.essay_min_words}–${lesson.essay_max_words})</div>
+        ${(state.academyEssayResult && state.academyEssayResult.error) ? `<div class="hint" style="color:var(--rust);text-align:left;margin:8px 0;">${escapeHtml(state.academyEssayResult.error)}</div>` : ''}
+        ${state.err ? `<div class="hint" style="color:var(--rust);text-align:left;margin:8px 0;">${escapeHtml(state.err)}</div>` : ''}
+        <button class="btn btn-gold" onclick="submitAcademyEssay()" style="margin-top:10px;">Submit Essay</button>`;
+    }
+  }
+
+  root.innerHTML = `
+    <div class="academy-hero">
+      <a class="academy-back" onclick="backToAcademyCourse();return false;" href="#">← Back to Course</a>
+      <div class="academy-hero-title">${escapeHtml(lesson.title)}</div>
+    </div>
+    <div class="academy-body">${bodyHtml}</div>`;
+
+  const ta = document.getElementById('academyEssayInput');
+  if(ta) ta.oninput = e => {
+    state.academyEssayDraft = e.target.value;
+    const wc = document.getElementById('academyWordCount');
+    if(wc) wc.textContent = academyWordCount(state.academyEssayDraft) + ` words (need ${lesson.essay_min_words}–${lesson.essay_max_words})`;
+  };
+}
+
+function renderAcademyCertificate(root){
+  const course = state.academyCourses.find(c => c.id === state.academySelectedCourseId);
+  const cert = state.academyCertificates[state.academySelectedCourseId];
+  if(!course || !cert){
+    root.innerHTML = `<div class="academy-body"><p class="hint">Certificate not available — complete the course first.</p></div>`;
+    return;
+  }
+  root.innerHTML = `
+    <div class="academy-body">
+      <a class="academy-back" onclick="goToAcademyHome();return false;" href="#">← Academy Home</a>
+      <div class="academy-certificate">
+        <div class="academy-cert-title">Certificate of Completion</div>
+        <div class="academy-cert-name">${escapeHtml(displayName() || 'Learner')}</div>
+        <div class="academy-cert-body">has successfully completed<br><strong>${escapeHtml(course.title)}</strong></div>
+        <div class="academy-cert-date">${fmtDate(cert.issued_at)}</div>
+      </div>
+    </div>`;
+}
+
 function stampHtml(status){
   const label = status === "approved" ? "Approved" : status === "pending" ? "Pending" : "Declined";
   return `<div class="stamp ${status}">${label}</div>`;
@@ -2672,6 +3064,7 @@ function renderNav(){
     {id:'feed', label:`Feed (${feedCount})`},
     {id:'forum', label:'Forum'},
     {id:'prayers', label:'Prayers'},
+    {id:'academy', label:'Academy'},
     {id:'submit', label:'Submit'},
     {id:'desk', label:'My desk'},
     {id:'messages', label:'Messages', count: state.unreadTotal}
@@ -2735,6 +3128,12 @@ function setView(v){
   if(v === 'prayers'){
     loadPrayerRequests().then(render);
   }
+  if(v === 'academy'){
+    state.academyView = 'home';
+    state.academySelectedCourseId = null;
+    state.academySelectedLessonId = null;
+    loadAcademyCatalog().then(render);
+  }
 }
 
 function toggleGroupFilter(scope, key){
@@ -2787,6 +3186,15 @@ function renderMain(){
 
   if(state.view === 'forum'){
     renderForum(main);
+    return;
+  }
+
+  if(state.view === 'academy'){
+    if(!state.session){
+      main.innerHTML = `<div class="scroll-panel"><div class="narrow"><div class="locked-msg"><div class="glyph">†</div><p>Sign in above to access The Flint Academy.</p></div></div></div>`;
+      return;
+    }
+    renderAcademy(main);
     return;
   }
 
