@@ -417,6 +417,8 @@ let state = {
   academyQuizResult: null,
   academyEssayDraft: "",
   academyEssayResult: null,
+  academyTranslationLang: "",
+  academyTranslationCache: {},
   lists: [],
   listsLoaded: false,
   listManagerOpenId: null,
@@ -2133,6 +2135,7 @@ async function openAcademyCourse(courseId){
   state.err = "";
   render();
   await loadAcademyCourseDetail(courseId);
+  await loadAcademyTranslationsForView();
   render();
 }
 
@@ -2141,6 +2144,7 @@ function goToAcademyHome(){
   state.academySelectedCourseId = null;
   state.academySelectedLessonId = null;
   render();
+  loadAcademyTranslationsForView().then(render);
 }
 
 function backToAcademyCourse(){
@@ -2173,6 +2177,8 @@ async function openAcademyLesson(lessonId){
     state.academyQuizQuestions = data || [];
     render();
   }
+  await loadAcademyTranslationsForView();
+  render();
 }
 
 async function submitAcademyQuiz(){
@@ -2229,6 +2235,86 @@ function academyWordCount(text){
   return t ? t.split(/\s+/).length : 0;
 }
 
+// ===== Academy translations =====
+
+function academyTrKey(type, id, lang){
+  return `${type}:${id}:${lang}`;
+}
+
+async function loadAcademyTranslations(contentType, ids, lang){
+  if(!lang || !ids.length) return;
+  const missing = ids.filter(id => state.academyTranslationCache[academyTrKey(contentType, id, lang)] === undefined);
+  if(!missing.length) return;
+  const { data, error } = await sb.from('academy_translations')
+    .select('content_id, data')
+    .eq('content_type', contentType)
+    .eq('language_code', lang)
+    .in('content_id', missing);
+  const found = new Set();
+  (data || []).forEach(row => {
+    state.academyTranslationCache[academyTrKey(contentType, row.content_id, lang)] = row.data;
+    found.add(row.content_id);
+  });
+  if(!error){
+    missing.forEach(id => {
+      if(!found.has(id)) state.academyTranslationCache[academyTrKey(contentType, id, lang)] = null;
+    });
+  }
+}
+
+async function loadAcademyTranslationsForView(){
+  const lang = state.academyTranslationLang;
+  if(!lang) return;
+  if(state.academyView === 'lesson' && state.academySelectedLessonId){
+    await loadAcademyTranslations('lesson', [state.academySelectedLessonId], lang);
+    const qIds = state.academyQuizQuestions.map(q => q.id);
+    if(qIds.length) await loadAcademyTranslations('quiz_question', qIds, lang);
+  } else if((state.academyView === 'course' || state.academyView === 'certificate') && state.academySelectedCourseId){
+    await loadAcademyTranslations('course', [state.academySelectedCourseId], lang);
+    const lessonIds = state.academyLessons.map(l => l.id);
+    if(lessonIds.length) await loadAcademyTranslations('lesson', lessonIds, lang);
+  } else {
+    const subjIds = state.academySubjects.map(s => s.id);
+    const courseIds = state.academyCourses.map(c => c.id);
+    if(subjIds.length) await loadAcademyTranslations('subject', subjIds, lang);
+    if(courseIds.length) await loadAcademyTranslations('course', courseIds, lang);
+  }
+}
+
+async function setAcademyTranslationLang(lang){
+  state.academyTranslationLang = lang;
+  render(); // show "Loading translation…" immediately where relevant
+  if(!lang) return;
+  await loadAcademyTranslationsForView();
+  render();
+}
+
+function academyTr(type, id){
+  const lang = state.academyTranslationLang;
+  if(!lang) return undefined;
+  return state.academyTranslationCache[academyTrKey(type, id, lang)];
+}
+
+function academyTranslateBarHtml(){
+  return `
+    <div class="translate-bar">
+      <select id="academyTranslationSelect" class="filter-select" style="flex:0 0 auto;min-width:150px;">
+        <option value="">Original (English)</option>
+        ${LANGUAGES.map(l => `<option value="${l.code}" ${state.academyTranslationLang === l.code ? 'selected' : ''}>${l.label}</option>`).join('')}
+      </select>
+    </div>`;
+}
+
+function academyTranslationNoteHtml(type, id){
+  if(!state.academyTranslationLang) return '';
+  const cached = academyTr(type, id);
+  return cached === null
+    ? `<div class="field-note" style="margin-top:8px;">Translation not ready yet for this language — showing the original below.</div>`
+    : cached === undefined
+      ? `<div class="field-note" style="margin-top:8px;">Loading translation…</div>`
+      : `<div class="field-note" style="margin-top:8px;">Machine-translated — the original is in English.</div>`;
+}
+
 function renderAcademy(main){
   main.innerHTML = `<div class="scroll-panel academy-theme" id="academyRoot"></div>`;
   const root = document.getElementById('academyRoot');
@@ -2241,12 +2327,19 @@ function renderAcademy(main){
   } else {
     renderAcademyHome(root);
   }
+  const ats = document.getElementById('academyTranslationSelect');
+  if(ats) ats.onchange = e => setAcademyTranslationLang(e.target.value);
 }
 
 function renderAcademyHome(root){
   const subjectsHtml = state.academySubjects.map(subj => {
+    const subjTr = academyTr('subject', subj.id);
+    const subjTitle = (subjTr && subjTr.title) || subj.title;
     const courses = state.academyCourses.filter(c => c.subject_id === subj.id);
     const courseCards = courses.map(c => {
+      const courseTr = academyTr('course', c.id);
+      const courseTitle = (courseTr && courseTr.title) || c.title;
+      const courseDesc = (courseTr && courseTr.description) || c.description;
       const enrollment = state.academyEnrollments[c.id];
       const cert = state.academyCertificates[c.id];
       let actionHtml;
@@ -2259,21 +2352,22 @@ function renderAcademyHome(root){
       }
       return `
         <div class="academy-card">
-          <div class="academy-card-title">${escapeHtml(c.title)}</div>
-          <div class="academy-card-desc">${escapeHtml(c.description || '')}</div>
+          <div class="academy-card-title">${escapeHtml(courseTitle)}</div>
+          <div class="academy-card-desc">${escapeHtml(courseDesc || '')}</div>
           ${actionHtml}
         </div>`;
     }).join('');
 
     return `
       <div class="academy-subject">
-        <div class="academy-subject-title">${escapeHtml(subj.title)}</div>
+        <div class="academy-subject-title">${escapeHtml(subjTitle)}</div>
         <div class="academy-course-grid">${courseCards}</div>
       </div>`;
   }).join('');
 
   root.innerHTML = `
     <div class="academy-hero">
+      ${academyTranslateBarHtml()}
       <div class="academy-hero-title">The Flint Academy</div>
       <div class="academy-hero-sub">Structured courses in apostolic doctrine and ministry formation.</div>
     </div>
@@ -2286,6 +2380,9 @@ function renderAcademyHome(root){
 function renderAcademyCourse(root){
   const course = state.academyCourses.find(c => c.id === state.academySelectedCourseId);
   if(!course){ root.innerHTML = `<p class="hint">Course not found.</p>`; return; }
+  const courseTr = academyTr('course', course.id);
+  const courseTitle = (courseTr && courseTr.title) || course.title;
+  const courseDesc = (courseTr && courseTr.description) || course.description;
 
   const sections = {};
   state.academyLessons.forEach(l => {
@@ -2300,12 +2397,14 @@ function renderAcademyCourse(root){
     const rows = sections[secNum].map(l => {
       const status = academyLessonStatus(l.id);
       const clickable = status !== 'locked';
+      const lessonTr = academyTr('lesson', l.id);
+      const lessonTitle = (lessonTr && lessonTr.title) || l.title;
       const scoreTag = state.academyProgress[l.id] && state.academyProgress[l.id].score != null
         ? ` <span class="academy-score">${state.academyProgress[l.id].score}%</span>` : '';
       return `
         <div class="academy-lesson-row ${status} ${clickable ? '' : 'is-locked'}" ${clickable ? `onclick="openAcademyLesson('${l.id}')"` : ''}>
           <span class="academy-lesson-icon">${statusIcon(status)}</span>
-          <span class="academy-lesson-title">${escapeHtml(l.title)}</span>
+          <span class="academy-lesson-title">${escapeHtml(lessonTitle)}</span>
           <span class="academy-lesson-type">${typeLabel(l)}${scoreTag}</span>
         </div>`;
     }).join('');
@@ -2319,8 +2418,10 @@ function renderAcademyCourse(root){
   root.innerHTML = `
     <div class="academy-hero">
       <a class="academy-back" onclick="goToAcademyHome();return false;" href="#">← Academy Home</a>
-      <div class="academy-hero-title">${escapeHtml(course.title)}</div>
-      <div class="academy-hero-sub">${escapeHtml(course.description || '')}</div>
+      ${academyTranslateBarHtml()}
+      <div class="academy-hero-title">${escapeHtml(courseTitle)}</div>
+      <div class="academy-hero-sub">${escapeHtml(courseDesc || '')}</div>
+      ${academyTranslationNoteHtml('course', course.id)}
     </div>
     <div class="academy-body">
       ${state.err ? `<div class="hint" style="color:var(--rust);text-align:left;margin-bottom:14px;">${escapeHtml(state.err)}</div>` : ''}
@@ -2331,12 +2432,16 @@ function renderAcademyCourse(root){
 function renderAcademyLesson(root){
   const lesson = state.academyLessons.find(l => l.id === state.academySelectedLessonId);
   if(!lesson){ root.innerHTML = `<p class="hint">Lesson not found.</p>`; return; }
+  const lessonTr = academyTr('lesson', lesson.id);
+  const lessonTitle = (lessonTr && lessonTr.title) || lesson.title;
 
   let bodyHtml = '';
 
   if(lesson.type === 'chapter'){
+    const chapterContent = (lessonTr && lessonTr.content) || lesson.html_content;
     bodyHtml = `
-      <div class="academy-lesson-content">${lesson.html_content}</div>
+      ${academyTranslationNoteHtml('lesson', lesson.id)}
+      <div class="academy-lesson-content">${chapterContent}</div>
       <button class="btn btn-gold" onclick="submitAcademyChapterRead()" style="margin-top:24px;">Mark as Read — Continue</button>`;
   } else if(lesson.type === 'summary_quiz'){
     if(state.academyQuizResult){
@@ -2351,16 +2456,25 @@ function renderAcademyLesson(root){
                      : `<button class="btn btn-ghost" onclick="openAcademyLesson('${lesson.id}')">Retry Quiz</button>`}
         </div>`;
     } else {
-      const questionsHtml = state.academyQuizQuestions.map((q, i) => `
+      const questionsHtml = state.academyQuizQuestions.map((q, i) => {
+        const qTr = academyTr('quiz_question', q.id);
+        const qPrompt = (qTr && qTr.prompt) || q.prompt;
+        const optTextMap = {};
+        if(qTr && Array.isArray(qTr.options)){
+          qTr.options.forEach(o => { optTextMap[o.key] = o.text; });
+        }
+        return `
         <div class="academy-quiz-question">
-          <div class="academy-quiz-prompt">${i+1}. ${escapeHtml(q.prompt)}</div>
+          <div class="academy-quiz-prompt">${i+1}. ${escapeHtml(qPrompt)}</div>
           ${q.options.map(opt => `
             <label class="academy-quiz-option">
               <input type="radio" name="academyq_${q.id}" onclick="state.academyQuizAnswers['${q.id}']='${opt.key}'">
-              ${escapeHtml(opt.text)}
+              ${escapeHtml(optTextMap[opt.key] || opt.text)}
             </label>`).join('')}
-        </div>`).join('');
+        </div>`;
+      }).join('');
       bodyHtml = `
+        ${academyTranslationNoteHtml('lesson', lesson.id)}
         <form onsubmit="return false;">${questionsHtml}</form>
         ${state.err ? `<div class="hint" style="color:var(--rust);text-align:left;margin:10px 0;">${escapeHtml(state.err)}</div>` : ''}
         <button class="btn btn-gold" onclick="submitAcademyQuiz()" style="margin-top:10px;">Submit Quiz</button>`;
@@ -2371,8 +2485,10 @@ function renderAcademyLesson(root){
         <div class="academy-quiz-result passed">Essay submitted (${state.academyEssayResult.word_count} words).</div>
         <button class="btn btn-gold" onclick="backToAcademyCourse()" style="margin-top:16px;">Back to Course</button>`;
     } else {
+      const essayPrompt = (lessonTr && lessonTr.essay_prompt) || lesson.essay_prompt;
       bodyHtml = `
-        <p class="body-text">${escapeHtml(lesson.essay_prompt)}</p>
+        ${academyTranslationNoteHtml('lesson', lesson.id)}
+        <p class="body-text">${escapeHtml(essayPrompt)}</p>
         <textarea id="academyEssayInput" placeholder="Write your reflection here...">${escapeHtml(state.academyEssayDraft)}</textarea>
         <div class="word-count" id="academyWordCount">${academyWordCount(state.academyEssayDraft)} words (need ${lesson.essay_min_words}–${lesson.essay_max_words})</div>
         ${(state.academyEssayResult && state.academyEssayResult.error) ? `<div class="hint" style="color:var(--rust);text-align:left;margin:8px 0;">${escapeHtml(state.academyEssayResult.error)}</div>` : ''}
@@ -2384,7 +2500,8 @@ function renderAcademyLesson(root){
   root.innerHTML = `
     <div class="academy-hero">
       <a class="academy-back" onclick="backToAcademyCourse();return false;" href="#">← Back to Course</a>
-      <div class="academy-hero-title">${escapeHtml(lesson.title)}</div>
+      ${academyTranslateBarHtml()}
+      <div class="academy-hero-title">${escapeHtml(lessonTitle)}</div>
     </div>
     <div class="academy-body">${bodyHtml}</div>`;
 
@@ -3594,7 +3711,7 @@ function setView(v){
     state.academyView = 'home';
     state.academySelectedCourseId = null;
     state.academySelectedLessonId = null;
-    loadAcademyCatalog().then(render);
+    loadAcademyCatalog().then(loadAcademyTranslationsForView).then(render);
   }
 }
 
