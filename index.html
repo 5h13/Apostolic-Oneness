@@ -2047,7 +2047,7 @@ function academyWordCount(text){
 }
 
 function renderAcademy(main){
-  main.innerHTML = `<div class="academy-theme" id="academyRoot"></div>`;
+  main.innerHTML = `<div class="scroll-panel academy-theme" id="academyRoot"></div>`;
   const root = document.getElementById('academyRoot');
   if(state.academyView === 'course' && state.academySelectedCourseId){
     renderAcademyCourse(root);
