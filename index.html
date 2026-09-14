@@ -378,6 +378,14 @@ let state = {
   categoryFilter: "",
   subcategoryFilter: "",
   authorFilter: "",
+  deskSearchTerm: "",
+  deskCategoryFilter: "",
+  deskSubcategoryFilter: "",
+  deskAuthorFilter: "",
+  reviewSearchTerm: "",
+  reviewCategoryFilter: "",
+  reviewSubcategoryFilter: "",
+  reviewAuthorFilter: "",
   submitCategoryId: "",
   submitSubcategoryId: "",
   deskGroupFilter: null,
@@ -3024,25 +3032,35 @@ function renderSplit(main, items, opts){
     ? `<a class="back-link" onclick="clearSelection();return false;" href="#">← Back to list</a>${opts.detailHtml(selected)}`
     : `<div class="detail-empty"><div class="glyph">†</div><div class="welcome-message">${opts.welcomeHtml || defaultWelcome}</div></div>`;
 
+  const searchScope = opts.searchScope || 'feed';
+  const sIds = searchScope === 'feed'
+    ? { search: 'feedSearch', clear: 'clearFeedSearch', cat: 'categoryFilter', sub: 'subcategoryFilter', auth: 'authorFilter' }
+    : { search: `${searchScope}Search`, clear: `${searchScope}ClearSearch`, cat: `${searchScope}CategoryFilter`, sub: `${searchScope}SubcategoryFilter`, auth: `${searchScope}AuthorFilter` };
+  const termVal = state[scopedField(searchScope, 'searchTerm')] || '';
+  const catVal = state[scopedField(searchScope, 'categoryFilter')] || '';
+  const subVal = state[scopedField(searchScope, 'subcategoryFilter')] || '';
+  const authVal = state[scopedField(searchScope, 'authorFilter')] || '';
+  const authorOptions = opts.authorSourceList ? getAuthorsFromList(opts.authorSourceList) : getFeedAuthors();
+
   const searchHtml = opts.search ? `
     <div class="feed-tools">
       <div class="feed-search-wrap">
-        <input type="search" id="feedSearch" class="feed-search" value="${escapeHtml(state.searchTerm)}" placeholder="Search published articles...">
+        <input type="search" id="${sIds.search}" class="feed-search" value="${escapeHtml(termVal)}" placeholder="${escapeHtml(opts.searchPlaceholder || 'Search published articles...')}">
       </div>
-      <button type="button" id="clearFeedSearch" class="clear-search" ${(state.searchTerm || state.categoryFilter || state.subcategoryFilter || state.authorFilter) ? '' : 'disabled'}>Clear</button>
+      <button type="button" id="${sIds.clear}" class="clear-search" ${(termVal || catVal || subVal || authVal) ? '' : 'disabled'}>Clear</button>
     </div>
     <div class="feed-filters">
-      <select id="categoryFilter" class="filter-select">
+      <select id="${sIds.cat}" class="filter-select">
         <option value="">All categories</option>
-        ${state.categories.map(c => `<option value="${c.id}" ${state.categoryFilter===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
+        ${state.categories.map(c => `<option value="${c.id}" ${catVal===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
       </select>
-      <select id="subcategoryFilter" class="filter-select">
+      <select id="${sIds.sub}" class="filter-select">
         <option value="">All topics</option>
-        ${state.subcategories.map(s => `<option value="${s.id}" ${state.subcategoryFilter===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}
+        ${state.subcategories.map(s => `<option value="${s.id}" ${subVal===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}
       </select>
-      <select id="authorFilter" class="filter-select">
+      <select id="${sIds.auth}" class="filter-select">
         <option value="">All authors</option>
-        ${getFeedAuthors().map(n => `<option value="${escapeHtml(n)}" ${state.authorFilter===n?'selected':''}>${escapeHtml(n)}</option>`).join('')}
+        ${authorOptions.map(n => `<option value="${escapeHtml(n)}" ${authVal===n?'selected':''}>${escapeHtml(n)}</option>`).join('')}
       </select>
     </div>` : '';
 
@@ -3071,40 +3089,45 @@ function renderSplit(main, items, opts){
   if(newList) newList.scrollTop = prevListScrollTop;
 
   if(opts.search){
-    const feedSearch = document.getElementById('feedSearch');
-    const clearFeedSearch = document.getElementById('clearFeedSearch');
+    const termField = scopedField(searchScope, 'searchTerm');
+    const catField = scopedField(searchScope, 'categoryFilter');
+    const subField = scopedField(searchScope, 'subcategoryFilter');
+    const authField = scopedField(searchScope, 'authorFilter');
+
+    const feedSearch = document.getElementById(sIds.search);
+    const clearFeedSearch = document.getElementById(sIds.clear);
 
     if(feedSearch){
       feedSearch.addEventListener('keydown', (event) => {
         if(event.key === 'Enter') {
-          state.searchTerm = event.target.value;
+          state[termField] = event.target.value;
           render();
         }
       });
 
       feedSearch.addEventListener('input', (event) => {
-        state.searchTerm = event.target.value;
+        state[termField] = event.target.value;
       });
     }
 
     if(clearFeedSearch){
       clearFeedSearch.addEventListener('click', () => {
-        state.searchTerm = '';
-        state.categoryFilter = '';
-        state.subcategoryFilter = '';
-        state.authorFilter = '';
+        state[termField] = '';
+        state[catField] = '';
+        state[subField] = '';
+        state[authField] = '';
         render();
       });
     }
 
-    const categoryFilterEl = document.getElementById('categoryFilter');
-    if(categoryFilterEl) categoryFilterEl.onchange = e => { state.categoryFilter = e.target.value; render(); };
+    const categoryFilterEl = document.getElementById(sIds.cat);
+    if(categoryFilterEl) categoryFilterEl.onchange = e => { state[catField] = e.target.value; render(); };
 
-    const subcategoryFilterEl = document.getElementById('subcategoryFilter');
-    if(subcategoryFilterEl) subcategoryFilterEl.onchange = e => { state.subcategoryFilter = e.target.value; render(); };
+    const subcategoryFilterEl = document.getElementById(sIds.sub);
+    if(subcategoryFilterEl) subcategoryFilterEl.onchange = e => { state[subField] = e.target.value; render(); };
 
-    const authorFilterEl = document.getElementById('authorFilter');
-    if(authorFilterEl) authorFilterEl.onchange = e => { state.authorFilter = e.target.value; render(); };
+    const authorFilterEl = document.getElementById(sIds.auth);
+    if(authorFilterEl) authorFilterEl.onchange = e => { state[authField] = e.target.value; render(); };
   }
 }
 
@@ -3345,22 +3368,29 @@ function renderAuthBox(){
   }
 }
 
-function getFilteredPublishedArticles(){
-  let list = state.articles.filter(a => a.status === 'approved');
+// Maps a filter's base name to this scope's actual state field.
+// 'feed' keeps the original unprefixed field names (searchTerm, categoryFilter,
+// etc.) so existing Feed behavior/state is untouched; other scopes ('desk',
+// 'review') get their own independent fields, e.g. deskSearchTerm.
+function scopedField(scope, base){
+  if(scope === 'feed') return base;
+  return scope + base.charAt(0).toUpperCase() + base.slice(1);
+}
 
-  if(state.categoryFilter){
-    list = list.filter(a => a.category_id === state.categoryFilter);
-  }
-  if(state.subcategoryFilter){
-    list = list.filter(a => a.subcategory_id === state.subcategoryFilter);
-  }
-  if(state.authorFilter){
-    list = list.filter(a => (a.author_name || a.author_email) === state.authorFilter);
-  }
+function applyArticleFilters(list, scope){
+  const catField = scopedField(scope, 'categoryFilter');
+  const subField = scopedField(scope, 'subcategoryFilter');
+  const authField = scopedField(scope, 'authorFilter');
+  const termField = scopedField(scope, 'searchTerm');
 
-  const q = state.searchTerm.trim().toLowerCase();
-  if(!q) return list;
-  return list.filter(a => {
+  let out = list;
+  if(state[catField]) out = out.filter(a => a.category_id === state[catField]);
+  if(state[subField]) out = out.filter(a => a.subcategory_id === state[subField]);
+  if(state[authField]) out = out.filter(a => (a.author_name || a.author_email) === state[authField]);
+
+  const q = (state[termField] || '').trim().toLowerCase();
+  if(!q) return out;
+  return out.filter(a => {
     const haystack = [
       a.title,
       a.author_name,
@@ -3371,13 +3401,21 @@ function getFilteredPublishedArticles(){
   });
 }
 
-function getFeedAuthors(){
+function getAuthorsFromList(list){
   const names = new Set();
-  state.articles.filter(a => a.status === 'approved').forEach(a => {
+  list.forEach(a => {
     const n = a.author_name || a.author_email;
     if(n) names.add(n);
   });
   return Array.from(names).sort((a, b) => a.localeCompare(b));
+}
+
+function getFilteredPublishedArticles(){
+  return applyArticleFilters(state.articles.filter(a => a.status === 'approved'), 'feed');
+}
+
+function getFeedAuthors(){
+  return getAuthorsFromList(state.articles.filter(a => a.status === 'approved'));
 }
 
 function categoryName(id){
@@ -3947,7 +3985,8 @@ function renderMain(){
       return;
     }
 
-    const mine = state.articles.filter(a => a.author_email === state.session.user.email);
+    const mineBase = state.articles.filter(a => a.author_email === state.session.user.email);
+    const mine = applyArticleFilters(mineBase, 'desk');
     renderSplit(main, mine, {
       emptyTitle: "Nothing submitted yet.",
       emptySub: "Head to Submit to write your first article of faith.",
@@ -3958,6 +3997,10 @@ function renderMain(){
       groupLabels: { draft: 'Drafts', pending: 'Under Review', approved: 'Published', rejected: 'Declined' },
       activeGroup: state.deskGroupFilter,
       onGroupClick: (k) => `toggleGroupFilter('desk','${k}')`,
+      search: true,
+      searchScope: 'desk',
+      searchPlaceholder: 'Search your articles...',
+      authorSourceList: mineBase,
       topHtml: subTabsHtml,
       welcomeHtml: `
         <p class="welcome-heading">My Desk</p>
@@ -3975,7 +4018,9 @@ function renderMain(){
     }
     const pending = state.articles.filter(a => a.status === 'pending');
     const published = state.articles.filter(a => a.status === 'approved');
-    renderSplit(main, [...pending, ...published], {
+    const reviewBase = [...pending, ...published];
+    const reviewItems = applyArticleFilters(reviewBase, 'review');
+    renderSplit(main, reviewItems, {
       emptyTitle: "Nothing to review yet.",
       rowHtml: (a, active) => listRowHtml(a, active),
       detailHtml: reviewDetailHtml,
@@ -3984,6 +4029,10 @@ function renderMain(){
       groupLabels: { pending: 'For Review', approved: 'Published' },
       activeGroup: state.reviewGroupFilter,
       onGroupClick: (k) => `toggleGroupFilter('review','${k}')`,
+      search: true,
+      searchScope: 'review',
+      searchPlaceholder: 'Search articles to review...',
+      authorSourceList: reviewBase,
       welcomeHtml: `
         <p class="welcome-heading">Review Desk</p>
         <p class="welcome-copy">This is your editorial queue. Every article waiting on a decision, plus everything already published, shows up on the left — pending pieces first, so nothing sits unreviewed for long.</p>
