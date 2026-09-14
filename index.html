@@ -248,6 +248,12 @@
   .locked-msg{padding:40px 0;text-align:center;color:var(--slate);font-size:14px;}
   .locked-msg .glyph{font-family:'Fraunces',serif;font-size:28px;color:var(--ink-line);margin-bottom:8px;}
   .banner-note{font-size:13px;border-radius:6px;padding:10px 12px;margin-bottom:18px;}
+  .banner-announcement{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  .banner-info{color:var(--gold);background:var(--gold-dim);}
+  .banner-warning{color:var(--amber);background:var(--amber-dim);}
+  .banner-urgent{color:var(--rust);background:var(--rust-dim);}
+  .banner-dismiss{color:inherit;opacity:0.7;text-decoration:none;font-size:16px;line-height:1;cursor:pointer;flex-shrink:0;}
+  .banner-dismiss:hover{opacity:1;}
   @media(max-width:520px){
     .brand h1{font-size:30px;}
     .masthead-top{flex-direction:column;}
@@ -422,7 +428,12 @@ let state = {
   deskSubView: 'articles',
   feedListsOpen: true,
   feedArticlesOpen: true,
-  feedListToggle: {}
+  feedListToggle: {},
+  announcements: [],
+  announcementsLoaded: false,
+  announcementDraftMessage: "",
+  announcementDraftLevel: "info",
+  announcementDismissed: (typeof localStorage !== 'undefined' && localStorage.getItem('flint_announcement_dismissed')) || ""
 };
 
 // Keep this in sync with DESIRED_LANGUAGES in scripts/generate-translations.mjs
@@ -1126,6 +1137,9 @@ function renderUsersDashboard(main){
       <a href="javascript:void(0)" onclick="deleteSubcategory('${s.id}')" title="Remove topic" class="category-pill-remove">×</a>
     </span>`;
 
+  const activeAnn = activeAnnouncement();
+  const pastAnnouncements = state.announcements.filter(a => !a.active).slice(0, 10);
+
   // Preserve scroll position and the focused input's cursor across re-renders —
   // a full innerHTML rebuild otherwise creates a brand-new <input> on every
   // keystroke, which drops focus and resets scroll to the top.
@@ -1199,6 +1213,49 @@ function renderUsersDashboard(main){
         </div>
       </div>
 
+      <div class="panel" style="margin-top:20px;">
+        <div class="field-note" style="margin-bottom:10px;text-transform:uppercase;letter-spacing:0.08em;">Announcement</div>
+        <div class="hint" style="text-align:left;margin-bottom:12px;">A site-wide banner shown above the Feed to everyone, including signed-out visitors. Only one is live at a time, and visitors can dismiss it per-browser.</div>
+
+        ${activeAnn ? `
+          <div class="list-manager-card">
+            <div class="list-manager-head">
+              <div class="list-manager-title">
+                <span class="banner-note ${activeAnn.level === 'urgent' ? 'banner-urgent' : activeAnn.level === 'warning' ? 'banner-warning' : 'banner-info'}" style="display:inline-block;padding:2px 8px;margin:0 8px 0 0;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;">${activeAnn.level}</span>
+                Currently live
+              </div>
+              <div class="row" style="gap:6px;">
+                <button class="btn btn-ghost btn-small" onclick="deactivateAnnouncement('${activeAnn.id}')">Take down</button>
+                <button class="btn btn-rust btn-small" onclick="deleteAnnouncement('${activeAnn.id}')">Delete</button>
+              </div>
+            </div>
+            <div class="list-manager-body">
+              <div style="font-size:14px;">${escapeHtml(activeAnn.message)}</div>
+            </div>
+          </div>` : `<div class="hint" style="text-align:left;">Nothing live right now.</div>`}
+
+        <div class="row" style="margin-top:14px;gap:8px;align-items:flex-start;">
+          <select id="announcementLevel" class="filter-select" style="flex:0 0 auto;">
+            <option value="info" ${state.announcementDraftLevel === 'info' ? 'selected' : ''}>Info</option>
+            <option value="warning" ${state.announcementDraftLevel === 'warning' ? 'selected' : ''}>Warning</option>
+            <option value="urgent" ${state.announcementDraftLevel === 'urgent' ? 'selected' : ''}>Urgent</option>
+          </select>
+          <textarea id="announcementMessage" placeholder="e.g. The Flint will be down for maintenance Sunday 9-11am." style="flex:1;min-height:60px;">${escapeHtml(state.announcementDraftMessage)}</textarea>
+        </div>
+        <div class="row" style="margin-top:8px;justify-content:flex-end;">
+          <button class="btn btn-gold btn-small" onclick="publishAnnouncement()">Publish${activeAnn ? ' (replaces current)' : ''}</button>
+        </div>
+
+        ${pastAnnouncements.length ? `
+          <div class="field-note" style="margin:20px 0 10px;text-transform:uppercase;letter-spacing:0.08em;">Past announcements</div>
+          ${pastAnnouncements.map(a => `
+            <div class="list-manager-item">
+              <div class="list-manager-item-title">${escapeHtml(a.message)}</div>
+              <button class="btn btn-ghost btn-small" onclick="reactivateAnnouncement('${a.id}')">Reactivate</button>
+              <button class="btn btn-rust btn-small" onclick="deleteAnnouncement('${a.id}')">Delete</button>
+            </div>`).join('')}` : ''}
+      </div>
+
     </div></div>`;
 
   const newScrollEl = main.querySelector('.scroll-panel');
@@ -1219,6 +1276,10 @@ function renderUsersDashboard(main){
   document.getElementById('newSubcategoryName').onkeydown = e => { if(e.key==='Enter') addSubcategory(); };
   const newListInput = document.getElementById('newListName');
   if(newListInput) newListInput.onkeydown = e => { if(e.key==='Enter') createList(); };
+  const announcementMessageEl = document.getElementById('announcementMessage');
+  if(announcementMessageEl) announcementMessageEl.oninput = e => { state.announcementDraftMessage = e.target.value; };
+  const announcementLevelEl = document.getElementById('announcementLevel');
+  if(announcementLevelEl) announcementLevelEl.onchange = e => { state.announcementDraftLevel = e.target.value; };
   if(state.listManagerOpenId){
     const listSearchInput = document.getElementById(`listArticleSearch-${state.listManagerOpenId}`);
     if(listSearchInput){
@@ -3386,6 +3447,69 @@ function setDeskSubView(v){
   render();
 }
 
+// ===== Site-wide Announcement (public, single active banner) =====
+
+function activeAnnouncement(){
+  const active = state.announcements.filter(a => a.active);
+  if(!active.length) return null;
+  return active.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+}
+
+function announcementDismissKey(a){
+  return `${a.id}:${a.updated_at || a.created_at}`;
+}
+
+async function loadAnnouncements(){
+  const { data, error } = await sb.from('announcements').select('*').order('created_at', { ascending: false });
+  if(error){ state.announcementsLoaded = true; return; }
+  state.announcements = data || [];
+  state.announcementsLoaded = true;
+}
+
+async function publishAnnouncement(){
+  const message = state.announcementDraftMessage.trim();
+  if(!message) return;
+  const level = state.announcementDraftLevel;
+  const { error: deactivateErr } = await sb.from('announcements').update({ active: false }).eq('active', true);
+  if(deactivateErr){ state.err = deactivateErr.message; render(); return; }
+  const { error } = await sb.from('announcements').insert({ message, level, active: true });
+  if(error){ state.err = error.message; render(); return; }
+  state.announcementDraftMessage = "";
+  state.announcementDraftLevel = "info";
+  state.err = "";
+  await loadAnnouncements();
+  render();
+}
+
+async function deactivateAnnouncement(id){
+  const { error } = await sb.from('announcements').update({ active: false, updated_at: new Date().toISOString() }).eq('id', id);
+  if(error){ state.err = error.message; }
+  await loadAnnouncements();
+  render();
+}
+
+async function reactivateAnnouncement(id){
+  const { error: deactivateErr } = await sb.from('announcements').update({ active: false }).eq('active', true);
+  if(deactivateErr){ state.err = deactivateErr.message; render(); return; }
+  const { error } = await sb.from('announcements').update({ active: true, updated_at: new Date().toISOString() }).eq('id', id);
+  if(error){ state.err = error.message; }
+  await loadAnnouncements();
+  render();
+}
+
+async function deleteAnnouncement(id){
+  const { error } = await sb.from('announcements').delete().eq('id', id);
+  if(error){ state.err = error.message; }
+  await loadAnnouncements();
+  render();
+}
+
+function dismissAnnouncement(key){
+  state.announcementDismissed = key;
+  if(typeof localStorage !== 'undefined') localStorage.setItem('flint_announcement_dismissed', key);
+  render();
+}
+
 function renderNav(){
   const nav = document.getElementById('nav');
   const feedCount = getFilteredPublishedArticles().length;
@@ -3483,6 +3607,18 @@ function toggleGroupFilter(scope, key){
 function renderBanner(){
   const banner = document.getElementById('banner');
   const parts = [];
+  const ann = activeAnnouncement();
+  if(ann){
+    const key = announcementDismissKey(ann);
+    if(state.announcementDismissed !== key){
+      const levelClass = ann.level === 'urgent' ? 'banner-urgent' : ann.level === 'warning' ? 'banner-warning' : 'banner-info';
+      parts.push(`
+        <div class="banner-note ${levelClass} banner-announcement">
+          <span>${escapeHtml(ann.message)}</span>
+          <a href="javascript:void(0)" class="banner-dismiss" onclick="dismissAnnouncement('${key}')" title="Dismiss">×</a>
+        </div>`);
+    }
+  }
   if(accountLocked()){
     parts.push(`<div class="banner-note" style="color:var(--rust);background:var(--rust-dim);">${escapeHtml(lockedMessage())}</div>`);
   }
@@ -3783,6 +3919,7 @@ async function init(){
   await loadPrayerRequests();
   await loadLists();
   await loadReadingList();
+  await loadAnnouncements();
   openArticleFromHash();
   render();
 
@@ -3815,6 +3952,13 @@ async function init(){
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'list_items' }, async () => {
       await loadLists();
+      render();
+    })
+    .subscribe();
+
+  sb.channel('announcements-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, async () => {
+      await loadAnnouncements();
       render();
     })
     .subscribe();
