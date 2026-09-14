@@ -421,7 +421,8 @@ let state = {
   readingListLoaded: false,
   deskSubView: 'articles',
   feedListsOpen: true,
-  feedArticlesOpen: true
+  feedArticlesOpen: true,
+  feedListToggle: {}
 };
 
 // Keep this in sync with DESIRED_LANGUAGES in scripts/generate-translations.mjs
@@ -2763,6 +2764,12 @@ function toggleFeedSection(section){
   render();
 }
 
+function toggleFeedList(listId){
+  const current = state.feedListToggle[listId];
+  state.feedListToggle[listId] = current === undefined ? false : !current;
+  render();
+}
+
 function feedListsAndArticlesHtml(items){
   const withArticles = state.lists.filter(l => l.items && l.items.length);
   const listsOpen = state.feedListsOpen;
@@ -2776,8 +2783,13 @@ function feedListsAndArticlesHtml(items){
       </div>`;
     const listsBody = listsOpen
       ? withArticles.map(l => {
-          const rows = l.items.map(it => listRowHtml(it.articles, it.articles.id === state.selectedId)).join('');
-          return `<div class="list-group-header list-subheader">${escapeHtml(l.title)}</div>${rows}`;
+          const listOpen = state.feedListToggle[l.id] === undefined ? true : state.feedListToggle[l.id];
+          const header = `
+            <div class="list-group-header list-subheader list-group-header-clickable" onclick="toggleFeedList('${l.id}')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleFeedList('${l.id}');}">
+              ${listOpen ? '▾' : '▸'} ${escapeHtml(l.title)} (${l.items.length})
+            </div>`;
+          const rows = listOpen ? l.items.map(it => listRowHtml(it.articles, it.articles.id === state.selectedId)).join('') : '';
+          return `${header}${rows}`;
         }).join('')
       : '';
     listsSection = `${listsHeader}${listsBody}`;
