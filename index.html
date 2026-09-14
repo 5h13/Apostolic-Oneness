@@ -101,6 +101,18 @@
   .list-group-header-clickable{cursor:pointer;}
   .list-group-header-clickable:hover{color:var(--paper);}
   .list-group-header.active{color:var(--gold);background:var(--ink-800);}
+  .desk-subtabs{display:flex;gap:6px;padding:10px 12px;border-bottom:1px solid var(--ink-line);background:var(--ink-900);}
+  .desk-subtabs button{background:none;border:1px solid var(--ink-line);color:var(--slate);font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.05em;text-transform:uppercase;padding:6px 10px;border-radius:6px;cursor:pointer;}
+  .desk-subtabs button.active{color:var(--paper);border-color:var(--gold);background:var(--ink-800);}
+  .reading-list-control{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:10px;}
+  .list-manager-card{border:1px solid var(--ink-line);border-radius:8px;padding:14px;margin-top:12px;}
+  .list-manager-head{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .list-manager-title{font-weight:600;}
+  .list-manager-body{margin-top:12px;border-top:1px solid var(--ink-line);padding-top:12px;}
+  .list-manager-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--ink-line);}
+  .list-manager-item:last-child{border-bottom:none;}
+  .list-manager-item-title{flex:1;font-size:13px;}
+  .list-manager-search-result{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--ink-line);}
   .list-row:hover{background:var(--ink-800);}
   .list-row.active{background:var(--ink-800);border-left-color:var(--gold);}
   .list-row-title{font-family:'Fraunces',serif;font-size:15px;font-weight:600;line-height:1.3;margin-bottom:5px;}
@@ -397,7 +409,15 @@ let state = {
   academyQuizAnswers: {},
   academyQuizResult: null,
   academyEssayDraft: "",
-  academyEssayResult: null
+  academyEssayResult: null,
+  lists: [],
+  listsLoaded: false,
+  listManagerOpenId: null,
+  listArticleSearchTerm: "",
+  readingList: [],
+  readingListMap: {},
+  readingListLoaded: false,
+  deskSubView: 'articles'
 };
 
 // Keep this in sync with DESIRED_LANGUAGES in scripts/generate-translations.mjs
@@ -1154,12 +1174,72 @@ function renderUsersDashboard(main){
         <div class="hint" style="text-align:left;margin-top:12px;">These power the Category/Topic dropdowns on Submit and the filters on the Feed — add as many as you like, any time, from right here.</div>
       </div>
 
+      <div class="panel" style="margin-top:20px;">
+        <div class="field-note" style="margin-bottom:10px;text-transform:uppercase;letter-spacing:0.08em;">Lists</div>
+        <div class="hint" style="text-align:left;margin-bottom:12px;">Curated collections of articles that appear at the top of the Feed, above the regular chronological list — e.g. group everything on the parables under one named list, in whatever order you like.</div>
+        ${state.lists.length ? state.lists.map(listManagerCardHtml).join('') : `<div class="hint" style="text-align:left;">No lists yet.</div>`}
+        <div class="row" style="margin-top:14px;gap:8px;">
+          <input type="text" id="newListName" placeholder="New list name, e.g. The Parables" style="flex:1;">
+          <button class="btn btn-ghost btn-small" onclick="createList()">Create list</button>
+        </div>
+      </div>
+
     </div></div>`;
 
   document.getElementById('userSearch').oninput = e => { state.userSearchTerm = e.target.value; renderUsersDashboard(main); };
   document.getElementById('userStatusFilter').onchange = e => { state.userStatusFilter = e.target.value; renderUsersDashboard(main); };
   document.getElementById('newCategoryName').onkeydown = e => { if(e.key==='Enter') addCategory(); };
   document.getElementById('newSubcategoryName').onkeydown = e => { if(e.key==='Enter') addSubcategory(); };
+  const newListInput = document.getElementById('newListName');
+  if(newListInput) newListInput.onkeydown = e => { if(e.key==='Enter') createList(); };
+  if(state.listManagerOpenId){
+    const listSearchInput = document.getElementById(`listArticleSearch-${state.listManagerOpenId}`);
+    if(listSearchInput){
+      listSearchInput.oninput = e => { state.listArticleSearchTerm = e.target.value; renderUsersDashboard(main); };
+    }
+  }
+}
+
+function listManagerCardHtml(l){
+  const items = l.items || [];
+  const isOpen = state.listManagerOpenId === l.id;
+  const itemRows = items.map((it, idx) => `
+    <div class="list-manager-item">
+      <div class="list-manager-item-title">${escapeHtml(it.articles.title || '(untitled)')}</div>
+      <button class="btn btn-ghost btn-small" ${idx === 0 ? 'disabled' : ''} onclick="moveListItem('${l.id}','${it.id}','up')">↑</button>
+      <button class="btn btn-ghost btn-small" ${idx === items.length - 1 ? 'disabled' : ''} onclick="moveListItem('${l.id}','${it.id}','down')">↓</button>
+      <button class="btn btn-rust btn-small" onclick="removeArticleFromListItem('${it.id}')">Remove</button>
+    </div>`).join('');
+
+  const existingIds = new Set(items.map(it => it.article_id));
+  const term = state.listArticleSearchTerm.trim().toLowerCase();
+  const matches = isOpen && term
+    ? state.articles.filter(a => a.status === 'approved' && !existingIds.has(a.id) && (a.title || '').toLowerCase().includes(term)).slice(0, 8)
+    : [];
+  const searchResults = matches.map(a => `
+    <div class="list-manager-search-result">
+      <div class="list-manager-item-title">${escapeHtml(a.title)}</div>
+      <button class="btn btn-gold btn-small" onclick="addArticleToListItem('${l.id}','${a.id}')">+ Add</button>
+    </div>`).join('');
+
+  return `
+    <div class="list-manager-card">
+      <div class="list-manager-head">
+        <div class="list-manager-title">${escapeHtml(l.title)} <span class="hint" style="margin:0;">(${items.length})</span></div>
+        <div class="row" style="gap:6px;">
+          <button class="btn btn-ghost btn-small" onclick="toggleListManager('${l.id}')">${isOpen ? 'Close' : 'Manage'}</button>
+          <button class="btn btn-rust btn-small" onclick="deleteList('${l.id}')">Delete</button>
+        </div>
+      </div>
+      ${isOpen ? `
+        <div class="list-manager-body">
+          ${items.length ? itemRows : `<div class="hint" style="text-align:left;">No articles in this list yet.</div>`}
+          <div class="row" style="margin-top:14px;gap:8px;">
+            <input type="text" id="listArticleSearch-${l.id}" placeholder="Search published articles to add..." value="${escapeHtml(state.listArticleSearchTerm)}" style="flex:1;">
+          </div>
+          ${term ? (matches.length ? `<div style="margin-top:8px;">${searchResults}</div>` : `<div class="hint" style="text-align:left;margin-top:8px;">No matches.</div>`) : ''}
+        </div>` : ''}
+    </div>`;
 }
 
 // ===== Internal messaging (editor <-> contributor, one thread each) =====
@@ -2607,6 +2687,45 @@ function listRowHtml(a, active, statusTag){
     </div>`;
 }
 
+function readingStatusTag(status){
+  const label = status === 'done' ? 'Done' : status === 'in_progress' ? 'In progress' : 'Not started';
+  const cls = status === 'done' ? 'approved' : status === 'in_progress' ? 'pending' : '';
+  return `<span class="stamp-mini ${cls}">${label}</span> `;
+}
+
+function readingListControlHtml(a){
+  const entry = state.readingListMap[a.id];
+  if(!entry){
+    return `
+      <div class="reading-list-control">
+        <button class="btn btn-ghost btn-small" onclick="addToReadingList('${a.id}')">+ Add to Reading List</button>
+      </div>`;
+  }
+  const statuses = [
+    { key: 'not_started', label: 'Not started' },
+    { key: 'in_progress', label: 'In progress' },
+    { key: 'done', label: 'Done' }
+  ];
+  const pills = statuses.map(s => `
+    <button class="btn btn-small ${entry.status === s.key ? 'btn-gold' : 'btn-ghost'}" onclick="setReadingStatus('${a.id}','${s.key}')">${s.label}</button>`).join('');
+  return `
+    <div class="reading-list-control">
+      <span class="field-note" style="margin:0;">On your Reading List:</span>
+      ${pills}
+      <a href="javascript:void(0)" class="toggle-link" onclick="removeFromReadingList('${a.id}')">Remove</a>
+    </div>`;
+}
+
+function listsFeedSectionHtml(){
+  const withArticles = state.lists.filter(l => l.items && l.items.length);
+  if(!withArticles.length) return '';
+  const sections = withArticles.map(l => {
+    const rows = l.items.map(it => listRowHtml(it.articles, it.articles.id === state.selectedId)).join('');
+    return `<div class="list-group-header">${escapeHtml(l.title)}</div>${rows}`;
+  }).join('');
+  return `${sections}<div class="list-group-header" style="opacity:0.7;">All Articles</div>`;
+}
+
 function renderSplit(main, items, opts){
   let listBody;
   if(opts.groupBy){
@@ -2680,7 +2799,7 @@ function renderSplit(main, items, opts){
 
   main.innerHTML = `
     <div class="split ${state.selectedId ? 'has-selection' : ''}">
-      <div class="split-list">${searchHtml}${listBody}</div>
+      <div class="split-list">${searchHtml}${opts.topHtml || ''}${listBody}</div>
       <div class="split-detail" data-article-id="${selected ? selected.id : ''}">${detailHtml}</div>
     </div>`;
 
@@ -2775,6 +2894,7 @@ function feedDetailHtml(a){
         <button class="btn btn-ghost btn-small" onclick="shareArticle('${a.id}')">${shareLabel}</button>
       </div>
       ${state.err ? `<div class="hint" style="color:var(--rust);text-align:left;margin-top:8px;">${escapeHtml(state.err)}</div>` : ''}
+      ${canInteract ? readingListControlHtml(a) : ''}
 
       <div class="comments-section">
         <div class="field-note" style="margin-bottom:12px;">Comments${state.comments.length ? ' · ' + state.comments.length : ''}</div>
@@ -3048,6 +3168,141 @@ async function deleteSubcategory(id){
   render();
 }
 
+// ===== Editor Lists (public, curated collections of articles) =====
+
+async function loadLists(){
+  const { data: listsData, error } = await sb.from('lists').select('*').order('sort_order', { ascending: true });
+  if(error){ state.listsLoaded = true; return; }
+  const lists = listsData || [];
+  await Promise.all(lists.map(async (l) => {
+    const { data: items } = await sb.from('list_items')
+      .select('id, sort_order, article_id, articles(*)')
+      .eq('list_id', l.id)
+      .order('sort_order', { ascending: true });
+    l.items = (items || []).filter(it => it.articles && it.articles.status === 'approved');
+  }));
+  state.lists = lists;
+  state.listsLoaded = true;
+}
+
+async function createList(){
+  const input = document.getElementById('newListName');
+  const title = (input.value || '').trim();
+  if(!title) return;
+  const { error } = await sb.from('lists').insert({ title, sort_order: state.lists.length });
+  if(error){ state.err = error.message; render(); return; }
+  input.value = '';
+  await loadLists();
+  render();
+}
+
+async function deleteList(id){
+  const { error } = await sb.from('lists').delete().eq('id', id);
+  if(error){ state.err = error.message; }
+  if(state.listManagerOpenId === id) state.listManagerOpenId = null;
+  await loadLists();
+  render();
+}
+
+function toggleListManager(id){
+  state.listManagerOpenId = state.listManagerOpenId === id ? null : id;
+  state.listArticleSearchTerm = "";
+  render();
+}
+
+async function addArticleToListItem(listId, articleId){
+  const list = state.lists.find(l => l.id === listId);
+  const nextOrder = list && list.items ? list.items.length : 0;
+  const { error } = await sb.from('list_items').insert({ list_id: listId, article_id: articleId, sort_order: nextOrder });
+  if(error){ state.err = error.message; render(); return; }
+  await loadLists();
+  render();
+}
+
+async function removeArticleFromListItem(itemId){
+  const { error } = await sb.from('list_items').delete().eq('id', itemId);
+  if(error){ state.err = error.message; }
+  await loadLists();
+  render();
+}
+
+async function moveListItem(listId, itemId, direction){
+  const list = state.lists.find(l => l.id === listId);
+  if(!list || !list.items) return;
+  const items = list.items;
+  const idx = items.findIndex(it => it.id === itemId);
+  const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+  if(idx < 0 || swapIdx < 0 || swapIdx >= items.length) return;
+  const a = items[idx], b = items[swapIdx];
+  const [{ error: e1 }, { error: e2 }] = await Promise.all([
+    sb.from('list_items').update({ sort_order: b.sort_order }).eq('id', a.id),
+    sb.from('list_items').update({ sort_order: a.sort_order }).eq('id', b.id)
+  ]);
+  if(e1 || e2){ state.err = (e1 && e1.message) || (e2 && e2.message); }
+  await loadLists();
+  render();
+}
+
+// ===== Personal Reading List (private, per user) =====
+
+async function loadReadingList(){
+  if(!state.session){
+    state.readingList = [];
+    state.readingListMap = {};
+    state.readingListLoaded = true;
+    return;
+  }
+  const { data, error } = await sb.from('reading_list_items')
+    .select('id, article_id, status, added_at, articles(*)')
+    .order('added_at', { ascending: false });
+  if(error){ state.readingListLoaded = true; return; }
+  state.readingList = data || [];
+  state.readingListMap = {};
+  (data || []).forEach(r => { state.readingListMap[r.article_id] = r; });
+  state.readingListLoaded = true;
+}
+
+async function addToReadingList(articleId){
+  if(!state.session){
+    state.err = "Sign in above to save articles to your reading list.";
+    render();
+    return;
+  }
+  const { error } = await sb.from('reading_list_items')
+    .insert({ user_id: state.session.user.id, article_id: articleId, status: 'not_started' });
+  if(error){ state.err = error.message; render(); return; }
+  state.err = "";
+  await loadReadingList();
+  render();
+}
+
+async function setReadingStatus(articleId, status){
+  const { error } = await sb.from('reading_list_items')
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('article_id', articleId)
+    .eq('user_id', state.session.user.id);
+  if(error){ state.err = error.message; render(); return; }
+  await loadReadingList();
+  render();
+}
+
+async function removeFromReadingList(articleId){
+  const { error } = await sb.from('reading_list_items')
+    .delete()
+    .eq('article_id', articleId)
+    .eq('user_id', state.session.user.id);
+  if(error){ state.err = error.message; render(); return; }
+  await loadReadingList();
+  render();
+}
+
+function setDeskSubView(v){
+  state.deskSubView = v;
+  state.deskGroupFilter = null;
+  state.selectedId = null;
+  render();
+}
+
 function renderNav(){
   const nav = document.getElementById('nav');
   const feedCount = getFilteredPublishedArticles().length;
@@ -3167,7 +3422,8 @@ function renderMain(){
       emptySub: filtersActive ? "Try clearing a filter or a different keyword." : "The first approved article of faith will appear here.",
       rowHtml: (a, active) => listRowHtml(a, active),
       detailHtml: feedDetailHtml,
-      search: true
+      search: true,
+      topHtml: !filtersActive ? listsFeedSectionHtml() : ''
     });
     const cd = document.getElementById('commentDraft');
     if(cd) cd.oninput = e => state.commentDraft = e.target.value;
@@ -3325,6 +3581,35 @@ function renderMain(){
   }
 
   if(state.view === 'desk'){
+    const subTabsHtml = `
+      <div class="desk-subtabs">
+        <button class="${state.deskSubView === 'articles' ? 'active' : ''}" onclick="setDeskSubView('articles')">My Articles</button>
+        <button class="${state.deskSubView === 'reading' ? 'active' : ''}" onclick="setDeskSubView('reading')">Reading List</button>
+      </div>`;
+
+    if(state.deskSubView === 'reading'){
+      const items = state.readingList.filter(r => r.articles).map(r => ({ ...r.articles, readingStatus: r.status }));
+      renderSplit(main, items, {
+        emptyTitle: "Your reading list is empty.",
+        emptySub: "Open any article and tap “+ Add to Reading List” to save it here.",
+        rowHtml: (a, active) => listRowHtml(a, active, readingStatusTag(a.readingStatus)),
+        detailHtml: feedDetailHtml,
+        groupBy: a => a.readingStatus,
+        groupOrder: ['not_started', 'in_progress', 'done'],
+        groupLabels: { not_started: 'Not started', in_progress: 'In progress', done: 'Done' },
+        activeGroup: state.deskGroupFilter,
+        onGroupClick: (k) => `toggleGroupFilter('desk','${k}')`,
+        topHtml: subTabsHtml,
+        welcomeHtml: `
+          <p class="welcome-heading">Reading List</p>
+          <p class="welcome-copy">Every article you've saved lives here, sorted by where you are with it: not started, in progress, or done.</p>
+          <p class="welcome-copy" style="margin-bottom:0;">Open any article on the Feed and use the “Add to Reading List” button to save it here, then update its status as you go.</p>`
+      });
+      const cd2 = document.getElementById('commentDraft');
+      if(cd2) cd2.oninput = e => state.commentDraft = e.target.value;
+      return;
+    }
+
     const mine = state.articles.filter(a => a.author_email === state.session.user.email);
     renderSplit(main, mine, {
       emptyTitle: "Nothing submitted yet.",
@@ -3336,6 +3621,7 @@ function renderMain(){
       groupLabels: { draft: 'Drafts', pending: 'Under Review', approved: 'Published', rejected: 'Declined' },
       activeGroup: state.deskGroupFilter,
       onGroupClick: (k) => `toggleGroupFilter('desk','${k}')`,
+      topHtml: subTabsHtml,
       welcomeHtml: `
         <p class="welcome-heading">My Desk</p>
         <p class="welcome-copy">This is your personal writing desk — every article you've submitted lives here, whatever its stage: saved drafts only you can see, pieces waiting on the editor's review, published articles, and anything that was sent back with notes.</p>
@@ -3411,6 +3697,8 @@ async function init(){
   await loadCategories();
   await loadForumQuestions();
   await loadPrayerRequests();
+  await loadLists();
+  await loadReadingList();
   openArticleFromHash();
   render();
 
@@ -3422,6 +3710,7 @@ async function init(){
     await loadOwnProfile();
     await loadArticles();
     await loadUnreadTotal();
+    await loadReadingList();
     render();
     if(state.view === 'feed' && state.selectedId){
       await loadArticleExtras(state.selectedId);
@@ -3431,6 +3720,17 @@ async function init(){
   sb.channel('articles-changes')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'articles' }, async () => {
       await loadArticles();
+      render();
+    })
+    .subscribe();
+
+  sb.channel('lists-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'lists' }, async () => {
+      await loadLists();
+      render();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'list_items' }, async () => {
+      await loadLists();
       render();
     })
     .subscribe();
