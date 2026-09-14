@@ -100,6 +100,7 @@
   .list-group-header{position:sticky;top:0;z-index:1;background:var(--ink-900);border-bottom:1px solid var(--ink-line);padding:8px 20px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--slate);}
   .list-group-header-clickable{cursor:pointer;}
   .list-group-header-clickable:hover{color:var(--paper);}
+  .list-subheader{padding-left:32px;}
   .list-group-header.active{color:var(--gold);background:var(--ink-800);}
   .desk-subtabs{display:flex;gap:6px;padding:10px 12px;border-bottom:1px solid var(--ink-line);background:var(--ink-900);}
   .desk-subtabs button{background:none;border:1px solid var(--ink-line);color:var(--slate);font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.05em;text-transform:uppercase;padding:6px 10px;border-radius:6px;cursor:pointer;}
@@ -418,7 +419,9 @@ let state = {
   readingList: [],
   readingListMap: {},
   readingListLoaded: false,
-  deskSubView: 'articles'
+  deskSubView: 'articles',
+  feedListsOpen: true,
+  feedArticlesOpen: true
 };
 
 // Keep this in sync with DESIRED_LANGUAGES in scripts/generate-translations.mjs
@@ -2754,19 +2757,48 @@ function readingListControlHtml(a){
     </div>`;
 }
 
-function listsFeedSectionHtml(){
+function toggleFeedSection(section){
+  if(section === 'lists') state.feedListsOpen = !state.feedListsOpen;
+  if(section === 'articles') state.feedArticlesOpen = !state.feedArticlesOpen;
+  render();
+}
+
+function feedListsAndArticlesHtml(items){
   const withArticles = state.lists.filter(l => l.items && l.items.length);
-  if(!withArticles.length) return '';
-  const sections = withArticles.map(l => {
-    const rows = l.items.map(it => listRowHtml(it.articles, it.articles.id === state.selectedId)).join('');
-    return `<div class="list-group-header">${escapeHtml(l.title)}</div>${rows}`;
-  }).join('');
-  return `${sections}<div class="list-group-header" style="opacity:0.7;">All Articles</div>`;
+  const listsOpen = state.feedListsOpen;
+  const articlesOpen = state.feedArticlesOpen;
+
+  let listsSection = '';
+  if(withArticles.length){
+    const listsHeader = `
+      <div class="list-group-header list-group-header-clickable" onclick="toggleFeedSection('lists')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleFeedSection('lists');}">
+        ${listsOpen ? '▾' : '▸'} Lists (${withArticles.length})
+      </div>`;
+    const listsBody = listsOpen
+      ? withArticles.map(l => {
+          const rows = l.items.map(it => listRowHtml(it.articles, it.articles.id === state.selectedId)).join('');
+          return `<div class="list-group-header list-subheader">${escapeHtml(l.title)}</div>${rows}`;
+        }).join('')
+      : '';
+    listsSection = `${listsHeader}${listsBody}`;
+  }
+
+  const articlesHeader = `
+    <div class="list-group-header list-group-header-clickable" onclick="toggleFeedSection('articles')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleFeedSection('articles');}">
+      ${articlesOpen ? '▾' : '▸'} Articles (${items.length})
+    </div>`;
+  const articlesBody = articlesOpen
+    ? (items.length ? items.map(a => listRowHtml(a, a.id === state.selectedId)).join('') : `<div class="hint" style="text-align:left;padding:14px 20px;">No articles published yet.</div>`)
+    : '';
+
+  return `${listsSection}${articlesHeader}${articlesBody}`;
 }
 
 function renderSplit(main, items, opts){
   let listBody;
-  if(opts.groupBy){
+  if(opts.hideListBody){
+    listBody = '';
+  } else if(opts.groupBy){
     const groups = new Map();
     items.forEach(a => {
       const key = opts.groupBy(a);
@@ -3462,7 +3494,8 @@ function renderMain(){
       rowHtml: (a, active) => listRowHtml(a, active),
       detailHtml: feedDetailHtml,
       search: true,
-      topHtml: !filtersActive ? listsFeedSectionHtml() : ''
+      topHtml: !filtersActive ? feedListsAndArticlesHtml(filtered) : '',
+      hideListBody: !filtersActive
     });
     const cd = document.getElementById('commentDraft');
     if(cd) cd.oninput = e => state.commentDraft = e.target.value;
