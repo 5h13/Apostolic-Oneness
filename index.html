@@ -414,6 +414,7 @@ let state = {
   listsLoaded: false,
   listManagerOpenId: null,
   listArticleSearchTerm: "",
+  listArticleCategoryFilter: "",
   readingList: [],
   readingListMap: {},
   readingListLoaded: false,
@@ -1121,6 +1122,16 @@ function renderUsersDashboard(main){
       <a href="javascript:void(0)" onclick="deleteSubcategory('${s.id}')" title="Remove topic" class="category-pill-remove">×</a>
     </span>`;
 
+  // Preserve scroll position and the focused input's cursor across re-renders —
+  // a full innerHTML rebuild otherwise creates a brand-new <input> on every
+  // keystroke, which drops focus and resets scroll to the top.
+  const prevScrollEl = main.querySelector('.scroll-panel');
+  const prevScrollTop = prevScrollEl ? prevScrollEl.scrollTop : 0;
+  const activeEl = document.activeElement;
+  const activeId = activeEl && activeEl.id;
+  const activeSelStart = activeEl && typeof activeEl.selectionStart === 'number' ? activeEl.selectionStart : null;
+  const activeSelEnd = activeEl && typeof activeEl.selectionEnd === 'number' ? activeEl.selectionEnd : null;
+
   main.innerHTML = `
     <div class="scroll-panel"><div class="narrow">
 
@@ -1186,6 +1197,18 @@ function renderUsersDashboard(main){
 
     </div></div>`;
 
+  const newScrollEl = main.querySelector('.scroll-panel');
+  if(newScrollEl) newScrollEl.scrollTop = prevScrollTop;
+  if(activeId){
+    const newActiveEl = document.getElementById(activeId);
+    if(newActiveEl){
+      newActiveEl.focus();
+      if(activeSelStart !== null && newActiveEl.setSelectionRange){
+        newActiveEl.setSelectionRange(activeSelStart, activeSelEnd);
+      }
+    }
+  }
+
   document.getElementById('userSearch').oninput = e => { state.userSearchTerm = e.target.value; renderUsersDashboard(main); };
   document.getElementById('userStatusFilter').onchange = e => { state.userStatusFilter = e.target.value; renderUsersDashboard(main); };
   document.getElementById('newCategoryName').onkeydown = e => { if(e.key==='Enter') addCategory(); };
@@ -1196,6 +1219,10 @@ function renderUsersDashboard(main){
     const listSearchInput = document.getElementById(`listArticleSearch-${state.listManagerOpenId}`);
     if(listSearchInput){
       listSearchInput.oninput = e => { state.listArticleSearchTerm = e.target.value; renderUsersDashboard(main); };
+    }
+    const listCategorySelect = document.getElementById(`listArticleCategory-${state.listManagerOpenId}`);
+    if(listCategorySelect){
+      listCategorySelect.onchange = e => { state.listArticleCategoryFilter = e.target.value; renderUsersDashboard(main); };
     }
   }
 }
@@ -1213,8 +1240,15 @@ function listManagerCardHtml(l){
 
   const existingIds = new Set(items.map(it => it.article_id));
   const term = state.listArticleSearchTerm.trim().toLowerCase();
-  const matches = isOpen && term
-    ? state.articles.filter(a => a.status === 'approved' && !existingIds.has(a.id) && (a.title || '').toLowerCase().includes(term)).slice(0, 8)
+  const catFilter = state.listArticleCategoryFilter;
+  const filterActive = isOpen && (term || catFilter);
+  const matches = filterActive
+    ? state.articles.filter(a =>
+        a.status === 'approved' &&
+        !existingIds.has(a.id) &&
+        (!catFilter || a.category_id === catFilter) &&
+        (!term || (a.title || '').toLowerCase().includes(term))
+      ).slice(0, 8)
     : [];
   const searchResults = matches.map(a => `
     <div class="list-manager-search-result">
@@ -1235,9 +1269,13 @@ function listManagerCardHtml(l){
         <div class="list-manager-body">
           ${items.length ? itemRows : `<div class="hint" style="text-align:left;">No articles in this list yet.</div>`}
           <div class="row" style="margin-top:14px;gap:8px;">
+            <select id="listArticleCategory-${l.id}" class="filter-select" style="flex:0 0 auto;">
+              <option value="">All categories</option>
+              ${state.categories.map(c => `<option value="${c.id}" ${catFilter === c.id ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
+            </select>
             <input type="text" id="listArticleSearch-${l.id}" placeholder="Search published articles to add..." value="${escapeHtml(state.listArticleSearchTerm)}" style="flex:1;">
           </div>
-          ${term ? (matches.length ? `<div style="margin-top:8px;">${searchResults}</div>` : `<div class="hint" style="text-align:left;margin-top:8px;">No matches.</div>`) : ''}
+          ${filterActive ? (matches.length ? `<div style="margin-top:8px;">${searchResults}</div>` : `<div class="hint" style="text-align:left;margin-top:8px;">No matches.</div>`) : ''}
         </div>` : ''}
     </div>`;
 }
@@ -3207,6 +3245,7 @@ async function deleteList(id){
 function toggleListManager(id){
   state.listManagerOpenId = state.listManagerOpenId === id ? null : id;
   state.listArticleSearchTerm = "";
+  state.listArticleCategoryFilter = "";
   render();
 }
 
