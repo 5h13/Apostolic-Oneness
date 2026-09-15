@@ -283,6 +283,7 @@
   .academy-section-title{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ac-grad-b);margin-bottom:8px;}
   .academy-section-title-clickable{cursor:pointer;}
   .academy-section-title-clickable:hover{opacity:0.8;}
+  .academy-section-intro{color:#b8bcc6;font-size:14px;line-height:1.6;margin:6px 0 12px;white-space:pre-wrap;}
   .academy-lesson-row{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--ink-800);border:1px solid var(--ink-line);border-radius:8px;margin-bottom:6px;cursor:pointer;}
   .academy-lesson-row:hover{border-color:var(--ac-grad-b);}
   .academy-lesson-row.is-locked{opacity:0.5;cursor:not-allowed;}
@@ -419,6 +420,7 @@ let state = {
   academyLessons: [],
   academySections: [],
   academySectionOpen: {},
+  academyCourseIntroOpen: {},
   academyProgress: {},
   academyEnrollments: {},
   academyCertificates: {},
@@ -441,6 +443,7 @@ let state = {
   academyDeskSectionOpen: {},
   academyDeskRenamingSectionId: null,
   academyDeskSectionRenameDraft: "",
+  academyDeskSectionIntroDraft: "",
   academyDeskCourseDraft: null,
   academyDeskLessonEditor: null,
   lists: [],
@@ -2166,6 +2169,12 @@ async function openAcademyCourse(courseId){
   render();
 }
 
+function toggleAcademyCourseIntro(courseId){
+  const current = state.academyCourseIntroOpen[courseId];
+  state.academyCourseIntroOpen[courseId] = current === undefined ? false : !current;
+  render();
+}
+
 function toggleAcademySection(sectionId){
   const current = state.academySectionOpen[sectionId];
   state.academySectionOpen[sectionId] = current === undefined ? false : !current;
@@ -2416,6 +2425,7 @@ function renderAcademyCourse(root){
   const courseTr = academyTr('course', course.id);
   const courseTitle = (courseTr && courseTr.title) || course.title;
   const courseDesc = (courseTr && courseTr.description) || course.description;
+  const courseIntro = (courseTr && courseTr.intro_text) || course.intro_text;
 
   const lessonsBySection = {};
   state.academyLessons.forEach(l => {
@@ -2426,13 +2436,25 @@ function renderAcademyCourse(root){
 
   const orderedSections = state.academySections.slice().sort((a, b) => a.sort_order - b.sort_order);
 
-  const typeLabel = (l) => l.type === 'chapter' ? `Chapter ${l.chapter_number}` : l.type === 'essay' ? 'Essay' : 'Quiz';
+  const typeLabel = (l) => l.type === 'chapter' ? `Chapter ${l.chapter_number}` : l.type === 'essay' ? 'Essay' : l.type === 'section_quiz' ? 'Section Quiz' : 'Quiz';
   const statusIcon = (status) => status === 'completed' ? '✓' : status === 'unlocked' ? '○' : '🔒';
+
+  const introOpen = state.academyCourseIntroOpen[course.id] === undefined ? true : state.academyCourseIntroOpen[course.id];
+  const courseIntroHtml = courseIntro ? `
+    <div class="academy-section">
+      <div class="academy-section-title academy-section-title-clickable" onclick="toggleAcademyCourseIntro('${course.id}')">
+        ${introOpen ? '▾' : '▸'} Introduction
+      </div>
+      ${introOpen ? `<p class="body-text" style="margin-top:8px;">${escapeHtml(courseIntro)}</p>` : ''}
+    </div>` : '';
 
   const sectionsHtml = orderedSections.map(sec => {
     const lessons = lessonsBySection[sec.id] || [];
     if(!lessons.length) return '';
     const isOpen = state.academySectionOpen[sec.id] === undefined ? true : state.academySectionOpen[sec.id];
+    const secTr = academyTr('section', sec.id);
+    const secTitle = (secTr && secTr.title) || sec.title;
+    const secIntro = (secTr && secTr.intro_text) || sec.intro_text;
     const rows = isOpen ? lessons.map(l => {
       const status = academyLessonStatus(l.id);
       const clickable = status !== 'locked';
@@ -2450,8 +2472,9 @@ function renderAcademyCourse(root){
     return `
       <div class="academy-section">
         <div class="academy-section-title academy-section-title-clickable" onclick="toggleAcademySection('${sec.id}')">
-          ${isOpen ? '▾' : '▸'} ${escapeHtml(sec.title)}
+          ${isOpen ? '▾' : '▸'} ${escapeHtml(secTitle)}
         </div>
+        ${isOpen && secIntro ? `<p class="academy-section-intro">${escapeHtml(secIntro)}</p>` : ''}
         ${rows}
       </div>`;
   }).join('');
@@ -2465,6 +2488,7 @@ function renderAcademyCourse(root){
       ${academyTranslationNoteHtml('course', course.id)}
     </div>
     <div class="academy-body">      ${state.err ? `<div class="hint" style="color:var(--rust);text-align:left;margin-bottom:14px;">${escapeHtml(state.err)}</div>` : ''}
+      ${courseIntroHtml}
       ${sectionsHtml}
     </div>`;
 }
@@ -2639,7 +2663,8 @@ function renderAcademyDeskCourseEditor(root){
   const courseFieldsHtml = draft ? `
     <div class="list-manager-card">
       <input type="text" id="academyDeskCourseTitleInput" value="${escapeHtml(draft.title)}" placeholder="Course title" style="width:100%;margin-bottom:8px;">
-      <textarea id="academyDeskCourseDescInput" placeholder="Course description" style="width:100%;min-height:60px;margin-bottom:8px;">${escapeHtml(draft.description)}</textarea>
+      <textarea id="academyDeskCourseDescInput" placeholder="Course description (short, shown on the course card and header)" style="width:100%;min-height:60px;margin-bottom:8px;">${escapeHtml(draft.description)}</textarea>
+      <textarea id="academyDeskCourseIntroInput" placeholder="Course introduction (longer, shown as a collapsible intro above Section 1)" style="width:100%;min-height:100px;margin-bottom:8px;">${escapeHtml(draft.intro_text)}</textarea>
       <div class="row" style="gap:8px;margin-bottom:8px;">
         <select id="academyDeskCourseSubjectInput" class="filter-select">
           ${state.academyDeskSubjects.map(s => `<option value="${s.id}" ${draft.subject_id === s.id ? 'selected' : ''}>${escapeHtml(s.title)}</option>`).join('')}
@@ -2682,14 +2707,21 @@ function renderAcademyDeskCourseEditor(root){
         <button class="btn btn-ghost btn-small" onclick="cancelRenameAcademySection()">Cancel</button>`
       : `
         <div class="list-manager-title academy-section-title-clickable" style="flex:1;" onclick="toggleAcademyDeskSection('${sec.id}')">${isOpen ? '▾' : '▸'} ${escapeHtml(sec.title)} <span class="hint" style="margin:0;">(${lessons.length})</span></div>
-        <button class="btn btn-ghost btn-small" onclick="startRenameAcademySection('${sec.id}')">Rename</button>
+        <button class="btn btn-ghost btn-small" onclick="startRenameAcademySection('${sec.id}')">Edit</button>
         ${locked ? '' : `
           <button class="btn btn-ghost btn-small" ${secIdx === 0 ? 'disabled' : ''} onclick="moveAcademySection('${sec.id}','up')">↑</button>
           <button class="btn btn-ghost btn-small" ${secIdx === sortedSections.length - 1 ? 'disabled' : ''} onclick="moveAcademySection('${sec.id}','down')">↓</button>
           <button class="btn btn-rust btn-small" onclick="deleteAcademySection('${sec.id}')">Delete</button>`}`;
 
+    const introEditorHtml = isRenaming ? `
+      <textarea id="academyDeskSectionIntroInput" placeholder="Section introduction (shown below the section name)" style="width:100%;min-height:70px;margin-top:8px;">${escapeHtml(state.academyDeskSectionIntroDraft)}</textarea>` : '';
+
     const lessonRows = isOpen ? lessons.map((l, lIdx) => {
-      const typeLabel = l.type === 'chapter' ? `Chapter${l.chapter_number != null ? ' ' + l.chapter_number : ''}` : l.type === 'essay' ? 'Essay' : 'Quiz';
+      const linkedFromChapter = lessons.find(other => other.linked_quiz_lesson_id === l.id);
+      const typeLabel = l.type === 'chapter' ? `Chapter${l.chapter_number != null ? ' ' + l.chapter_number : ''}`
+        : l.type === 'essay' ? 'Essay'
+        : l.type === 'section_quiz' ? 'Section Summary Quiz'
+        : linkedFromChapter ? `Quiz — attached to "${linkedFromChapter.title}"` : 'Quiz';
       return `
         <div class="list-manager-item">
           <div class="list-manager-item-title">${escapeHtml(l.title)} <span class="hint" style="margin:0;">${typeLabel}</span></div>
@@ -2701,16 +2733,20 @@ function renderAcademyDeskCourseEditor(root){
         </div>`;
     }).join('') : '';
 
+    const hasSectionQuiz = lessons.some(l => l.type === 'section_quiz');
     const addLessonRow = isOpen ? `
-      <div class="row" style="margin-top:10px;gap:6px;">
+      <div class="row" style="margin-top:10px;gap:6px;flex-wrap:wrap;">
         <button class="btn btn-ghost btn-small" onclick="openNewLessonEditor('${sec.id}','chapter')">+ Chapter</button>
         <button class="btn btn-ghost btn-small" onclick="openNewLessonEditor('${sec.id}','essay')">+ Essay</button>
-        <button class="btn btn-ghost btn-small" onclick="openNewLessonEditor('${sec.id}','summary_quiz')">+ Quiz</button>
+        <button class="btn btn-ghost btn-small" onclick="openNewLessonEditor('${sec.id}','summary_quiz')">+ Standalone Quiz</button>
+        ${hasSectionQuiz ? '' : `<button class="btn btn-ghost btn-small" onclick="openNewLessonEditor('${sec.id}','section_quiz')">+ Section Summary Quiz</button>`}
       </div>` : '';
 
     return `
       <div class="list-manager-card">
         <div class="list-manager-head">${titleHtml}</div>
+        ${introEditorHtml}
+        ${!isRenaming && sec.intro_text ? `<div class="hint" style="text-align:left;margin-top:6px;">${escapeHtml(sec.intro_text)}</div>` : ''}
         <div class="list-manager-body">
           ${lessons.length ? lessonRows : (isOpen ? `<div class="hint" style="text-align:left;">No lessons in this section yet.</div>` : '')}
           ${addLessonRow}
@@ -2743,6 +2779,8 @@ function renderAcademyDeskCourseEditor(root){
     if(titleEl) titleEl.oninput = e => { draft.title = e.target.value; };
     const descEl = document.getElementById('academyDeskCourseDescInput');
     if(descEl) descEl.oninput = e => { draft.description = e.target.value; };
+    const introEl = document.getElementById('academyDeskCourseIntroInput');
+    if(introEl) introEl.oninput = e => { draft.intro_text = e.target.value; };
     const subjEl = document.getElementById('academyDeskCourseSubjectInput');
     if(subjEl) subjEl.onchange = e => { draft.subject_id = e.target.value; };
     const statusEl = document.getElementById('academyDeskCourseStatusInput');
@@ -2752,6 +2790,8 @@ function renderAcademyDeskCourseEditor(root){
   if(state.academyDeskRenamingSectionId){
     const rn = document.getElementById('academyDeskSectionRenameInput');
     if(rn) rn.oninput = e => { state.academyDeskSectionRenameDraft = e.target.value; };
+    const intro = document.getElementById('academyDeskSectionIntroInput');
+    if(intro) intro.oninput = e => { state.academyDeskSectionIntroDraft = e.target.value; };
   }
 
   wireAcademyLessonEditorInputs();
@@ -2759,25 +2799,47 @@ function renderAcademyDeskCourseEditor(root){
 
 function academyLessonEditorHtml(){
   const ed = state.academyDeskLessonEditor;
-  const typeFields = ed.type === 'chapter' ? `
+  let typeFields = '';
+
+  if(ed.type === 'chapter'){
+    typeFields = `
       <input type="number" id="academyDeskLessonChapterNumber" value="${ed.chapter_number != null ? ed.chapter_number : ''}" placeholder="Chapter number, e.g. 1" style="width:200px;margin-bottom:8px;">
-      <textarea id="academyDeskLessonHtmlContent" placeholder="Chapter content (HTML)" style="width:100%;min-height:200px;">${escapeHtml(ed.html_content)}</textarea>`
-    : ed.type === 'essay' ? `
+      <textarea id="academyDeskLessonHtmlContent" placeholder="Chapter content (HTML)" style="width:100%;min-height:200px;margin-bottom:12px;">${escapeHtml(ed.html_content)}</textarea>
+      <div class="list-manager-card">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="academyDeskChapterQuizToggle" ${ed.quizEnabled ? 'checked' : ''}>
+          <span>Enable a quiz for this chapter</span>
+        </label>
+        ${ed.quizEnabled ? `
+          <div style="margin-top:12px;">
+            <input type="number" id="academyDeskChapterQuizPassPercent" value="${ed.chapterQuizPassPercent}" placeholder="Pass %" style="width:140px;margin-bottom:12px;">
+            <div>${ed.chapterQuizQuestions.map((q, idx) => academyDeskQuizQuestionRowHtml(q, idx, 'chapterQuiz')).join('')}</div>
+            <button class="btn btn-ghost btn-small" onclick="addDraftQuizQuestion('chapterQuiz')">+ Add Question</button>
+          </div>` : ''}
+      </div>`;
+  } else if(ed.type === 'essay'){
+    typeFields = `
       <textarea id="academyDeskLessonEssayPrompt" placeholder="Essay prompt" style="width:100%;min-height:100px;margin-bottom:8px;">${escapeHtml(ed.essay_prompt)}</textarea>
       <div class="row" style="gap:8px;">
         <input type="number" id="academyDeskLessonEssayMin" value="${ed.essay_min_words}" placeholder="Min words" style="width:140px;">
         <input type="number" id="academyDeskLessonEssayMax" value="${ed.essay_max_words}" placeholder="Max words" style="width:140px;">
-      </div>`
-    : `
+      </div>`;
+  } else {
+    const poolHtml = ed.type === 'section_quiz' ? academySectionQuizPoolHtml() : '';
+    typeFields = `
       <input type="number" id="academyDeskLessonPassPercent" value="${ed.pass_percent}" placeholder="Pass %" style="width:140px;margin-bottom:12px;">
+      ${poolHtml}
       <div id="academyDeskQuizQuestionsWrap">
-        ${ed.questions.map((q, idx) => academyDeskQuizQuestionRowHtml(q, idx)).join('')}
+        ${ed.questions.map((q, idx) => academyDeskQuizQuestionRowHtml(q, idx, 'main')).join('')}
       </div>
-      <button class="btn btn-ghost btn-small" onclick="addDraftQuizQuestion()">+ Add Question</button>`;
+      <button class="btn btn-ghost btn-small" onclick="addDraftQuizQuestion('main')">+ Add Question</button>`;
+  }
+
+  const typeName = ed.type === 'chapter' ? 'Chapter' : ed.type === 'essay' ? 'Essay' : ed.type === 'section_quiz' ? 'Section Summary Quiz' : 'Quiz';
 
   return `
     <div class="list-manager-card" style="margin-top:16px;border-color:var(--gold);">
-      <div class="list-manager-title" style="margin-bottom:10px;">${ed.mode === 'new' ? 'New' : 'Edit'} ${ed.type === 'chapter' ? 'Chapter' : ed.type === 'essay' ? 'Essay' : 'Quiz'}</div>
+      <div class="list-manager-title" style="margin-bottom:10px;">${ed.mode === 'new' ? 'New' : 'Edit'} ${typeName}</div>
       <input type="text" id="academyDeskLessonTitle" value="${escapeHtml(ed.title)}" placeholder="Lesson title" style="width:100%;margin-bottom:8px;">
       ${typeFields}
       <div class="row" style="margin-top:14px;gap:8px;">
@@ -2787,17 +2849,48 @@ function academyLessonEditorHtml(){
     </div>`;
 }
 
-function academyDeskQuizQuestionRowHtml(q, idx){
+function academySectionQuizPoolHtml(){
+  const ed = state.academyDeskLessonEditor;
+  if(!ed.poolCandidates || !ed.poolCandidates.length){
+    return `<div class="hint" style="text-align:left;margin-bottom:12px;">No chapter-quiz questions found yet in this section to pool from — add some chapter quizzes first, or just write questions directly below.</div>`;
+  }
+  const rows = ed.poolCandidates.map(q => `
+    <div class="list-manager-item">
+      <label style="display:flex;align-items:center;gap:8px;flex:1;cursor:pointer;">
+        <input type="checkbox" ${ed.poolSelected[q.id] ? 'checked' : ''} onchange="togglePoolSelection('${q.id}')">
+        <span class="list-manager-item-title" style="margin:0;">${escapeHtml(q.prompt)}</span>
+      </label>
+    </div>`).join('');
+  return `
+    <div class="list-manager-card" style="margin-bottom:12px;">
+      <div class="list-manager-title" style="margin-bottom:8px;">Pool from this section's chapter quizzes</div>
+      ${rows}
+      <button class="btn btn-ghost btn-small" onclick="copySelectedPoolQuestions()" style="margin-top:8px;">Copy Selected Into This Quiz</button>
+    </div>`;
+}
+
+function academyDeskQuizQuestionRowHtml(q, idx, scope){
   return `
     <div class="list-manager-item" style="flex-direction:column;align-items:stretch;gap:6px;">
-      <input type="text" id="academyDeskQQPrompt-${idx}" value="${escapeHtml(q.prompt)}" placeholder="Question prompt" style="width:100%;">
+      <input type="text" id="academyDeskQQPrompt-${scope}-${idx}" value="${escapeHtml(q.prompt)}" placeholder="Question prompt" style="width:100%;">
       ${q.options.map((opt, optIdx) => `
         <div class="row" style="gap:6px;align-items:center;">
-          <input type="radio" name="academyDeskQQCorrect-${idx}" ${q.correct_key === opt.key ? 'checked' : ''} onchange="setDraftQuizCorrect(${idx}, '${opt.key}')">
-          <input type="text" id="academyDeskQQOpt-${idx}-${optIdx}" value="${escapeHtml(opt.text)}" placeholder="Option ${opt.key.toUpperCase()}" style="flex:1;">
+          <input type="radio" name="academyDeskQQCorrect-${scope}-${idx}" ${q.correct_key === opt.key ? 'checked' : ''} onchange="setDraftQuizCorrect('${scope}', ${idx}, '${opt.key}')">
+          <input type="text" id="academyDeskQQOpt-${scope}-${idx}-${optIdx}" value="${escapeHtml(opt.text)}" placeholder="Option ${opt.key.toUpperCase()}" style="flex:1;">
         </div>`).join('')}
-      <button class="btn btn-rust btn-small" onclick="removeDraftQuizQuestion(${idx})" style="align-self:flex-end;">Remove Question</button>
+      <button class="btn btn-rust btn-small" onclick="removeDraftQuizQuestion('${scope}', ${idx})" style="align-self:flex-end;">Remove Question</button>
     </div>`;
+}
+
+function wireQuizQuestionInputs(questions, scope){
+  questions.forEach((q, idx) => {
+    const pEl = document.getElementById(`academyDeskQQPrompt-${scope}-${idx}`);
+    if(pEl) pEl.oninput = e => { q.prompt = e.target.value; };
+    q.options.forEach((opt, optIdx) => {
+      const oEl = document.getElementById(`academyDeskQQOpt-${scope}-${idx}-${optIdx}`);
+      if(oEl) oEl.oninput = e => { opt.text = e.target.value; };
+    });
+  });
 }
 
 function wireAcademyLessonEditorInputs(){
@@ -2811,6 +2904,15 @@ function wireAcademyLessonEditorInputs(){
     if(chNum) chNum.oninput = e => { ed.chapter_number = e.target.value ? parseInt(e.target.value, 10) : null; };
     const html = document.getElementById('academyDeskLessonHtmlContent');
     if(html) html.oninput = e => { ed.html_content = e.target.value; };
+
+    const quizToggle = document.getElementById('academyDeskChapterQuizToggle');
+    if(quizToggle) quizToggle.onchange = e => { ed.quizEnabled = e.target.checked; render(); };
+
+    if(ed.quizEnabled){
+      const passEl = document.getElementById('academyDeskChapterQuizPassPercent');
+      if(passEl) passEl.oninput = e => { ed.chapterQuizPassPercent = parseInt(e.target.value, 10) || 0; };
+      wireQuizQuestionInputs(ed.chapterQuizQuestions, 'chapterQuiz');
+    }
   } else if(ed.type === 'essay'){
     const prompt = document.getElementById('academyDeskLessonEssayPrompt');
     if(prompt) prompt.oninput = e => { ed.essay_prompt = e.target.value; };
@@ -2821,14 +2923,7 @@ function wireAcademyLessonEditorInputs(){
   } else {
     const pass = document.getElementById('academyDeskLessonPassPercent');
     if(pass) pass.oninput = e => { ed.pass_percent = parseInt(e.target.value, 10) || 0; };
-    ed.questions.forEach((q, idx) => {
-      const pEl = document.getElementById(`academyDeskQQPrompt-${idx}`);
-      if(pEl) pEl.oninput = e => { q.prompt = e.target.value; };
-      q.options.forEach((opt, optIdx) => {
-        const oEl = document.getElementById(`academyDeskQQOpt-${idx}-${optIdx}`);
-        if(oEl) oEl.oninput = e => { opt.text = e.target.value; };
-      });
-    });
+    wireQuizQuestionInputs(ed.questions, 'main');
   }
 }
 
@@ -3980,6 +4075,7 @@ function startEditAcademyCourseFields(){
   state.academyDeskCourseDraft = {
     title: course.title,
     description: course.description || '',
+    intro_text: course.intro_text || '',
     subject_id: course.subject_id,
     status: course.status
   };
@@ -3997,6 +4093,7 @@ async function saveAcademyCourseFields(){
   const { error } = await sb.from('academy_courses').update({
     title: d.title.trim(),
     description: d.description,
+    intro_text: d.intro_text,
     subject_id: d.subject_id,
     status: d.status
   }).eq('id', state.academyDeskCourseId);
@@ -4043,6 +4140,7 @@ function startRenameAcademySection(id){
   if(!sec) return;
   state.academyDeskRenamingSectionId = id;
   state.academyDeskSectionRenameDraft = sec.title;
+  state.academyDeskSectionIntroDraft = sec.intro_text || '';
   render();
 }
 
@@ -4054,7 +4152,10 @@ function cancelRenameAcademySection(){
 async function saveRenameAcademySection(id){
   const title = (state.academyDeskSectionRenameDraft || '').trim();
   if(!title) return;
-  const { error } = await sb.from('academy_sections').update({ title }).eq('id', id);
+  const { error } = await sb.from('academy_sections').update({
+    title,
+    intro_text: state.academyDeskSectionIntroDraft || ''
+  }).eq('id', id);
   if(error){ state.err = error.message; }
   else state.err = "";
   state.academyDeskRenamingSectionId = null;
@@ -4109,21 +4210,35 @@ function toggleAcademyDeskSection(id){
 // --- Lessons ---
 
 function openNewLessonEditor(sectionId, type){
+  let defaultTitle = '';
+  if(type === 'section_quiz'){
+    const sec = state.academyDeskSections.find(s => s.id === sectionId);
+    defaultTitle = sec ? `${sec.title} Summary Quiz` : 'Section Summary Quiz';
+  }
   state.academyDeskLessonEditor = {
     mode: 'new',
     sectionId,
     id: null,
     type: type || 'chapter',
-    title: '',
+    title: defaultTitle,
     html_content: '',
     essay_prompt: '',
     essay_min_words: 150,
     essay_max_words: 500,
     pass_percent: 70,
     chapter_number: null,
-    questions: []
+    questions: [],
+    quizEnabled: false,
+    linkedQuizLessonId: null,
+    chapterQuizPassPercent: 70,
+    chapterQuizQuestions: [],
+    poolCandidates: [],
+    poolSelected: {}
   };
   render();
+  if(type === 'section_quiz'){
+    loadAcademyDeskSectionQuizPool(sectionId).then(render);
+  }
 }
 
 function openEditLessonEditor(lessonId){
@@ -4141,11 +4256,23 @@ function openEditLessonEditor(lessonId){
     essay_max_words: l.essay_max_words || 500,
     pass_percent: l.pass_percent || 70,
     chapter_number: l.chapter_number,
-    questions: []
+    questions: [],
+    quizEnabled: !!l.linked_quiz_lesson_id,
+    linkedQuizLessonId: l.linked_quiz_lesson_id || null,
+    chapterQuizPassPercent: 70,
+    chapterQuizQuestions: [],
+    poolCandidates: [],
+    poolSelected: {}
   };
   render();
-  if(l.type === 'summary_quiz'){
+  if(l.type === 'summary_quiz' || l.type === 'section_quiz'){
     loadAcademyDeskQuizQuestions(lessonId).then(render);
+  }
+  if(l.type === 'chapter' && l.linked_quiz_lesson_id){
+    loadAcademyDeskChapterQuiz(l.linked_quiz_lesson_id).then(render);
+  }
+  if(l.type === 'section_quiz'){
+    loadAcademyDeskSectionQuizPool(l.section_id).then(render);
   }
 }
 
@@ -4173,8 +4300,81 @@ async function loadAcademyDeskQuizQuestions(lessonId){
   }
 }
 
-function addDraftQuizQuestion(){
-  state.academyDeskLessonEditor.questions.push({
+async function loadAcademyDeskChapterQuiz(quizLessonId){
+  const { data: quizLesson } = await sb.from('academy_lessons').select('*').eq('id', quizLessonId).maybeSingle();
+  const { data: questions } = await sb.from('academy_quiz_questions').select('*').eq('lesson_id', quizLessonId).order('sort_order');
+  const qs = questions || [];
+  const ids = qs.map(q => q.id);
+  let answersMap = {};
+  if(ids.length){
+    const { data: answers } = await sb.from('academy_quiz_answers').select('*').in('question_id', ids);
+    (answers || []).forEach(a => { answersMap[a.question_id] = a.correct_key; });
+  }
+  if(state.academyDeskLessonEditor && state.academyDeskLessonEditor.linkedQuizLessonId === quizLessonId){
+    state.academyDeskLessonEditor.chapterQuizPassPercent = (quizLesson && quizLesson.pass_percent) || 70;
+    state.academyDeskLessonEditor.chapterQuizQuestions = qs.map(q => ({
+      id: q.id,
+      prompt: q.prompt,
+      options: q.options,
+      correct_key: answersMap[q.id] || (q.options[0] && q.options[0].key)
+    }));
+  }
+}
+
+async function loadAcademyDeskSectionQuizPool(sectionId){
+  const chapterQuizLessonIds = state.academyDeskLessons
+    .filter(l => l.section_id === sectionId && l.type === 'summary_quiz')
+    .map(l => l.id);
+  if(!chapterQuizLessonIds.length){
+    if(state.academyDeskLessonEditor) state.academyDeskLessonEditor.poolCandidates = [];
+    return;
+  }
+  const { data: questions } = await sb.from('academy_quiz_questions').select('*').in('lesson_id', chapterQuizLessonIds).order('sort_order');
+  const qs = questions || [];
+  const ids = qs.map(q => q.id);
+  let answersMap = {};
+  if(ids.length){
+    const { data: answers } = await sb.from('academy_quiz_answers').select('*').in('question_id', ids);
+    (answers || []).forEach(a => { answersMap[a.question_id] = a.correct_key; });
+  }
+  if(state.academyDeskLessonEditor){
+    state.academyDeskLessonEditor.poolCandidates = qs.map(q => ({
+      id: q.id,
+      prompt: q.prompt,
+      options: q.options,
+      correct_key: answersMap[q.id]
+    }));
+  }
+}
+
+function togglePoolSelection(id){
+  const ed = state.academyDeskLessonEditor;
+  ed.poolSelected[id] = !ed.poolSelected[id];
+  render();
+}
+
+function copySelectedPoolQuestions(){
+  const ed = state.academyDeskLessonEditor;
+  const selected = ed.poolCandidates.filter(q => ed.poolSelected[q.id]);
+  selected.forEach(q => {
+    ed.questions.push({
+      id: null,
+      prompt: q.prompt,
+      options: q.options.map(o => ({ key: o.key, text: o.text })),
+      correct_key: q.correct_key
+    });
+  });
+  ed.poolSelected = {};
+  render();
+}
+
+function quizArrayFor(scope){
+  const ed = state.academyDeskLessonEditor;
+  return scope === 'chapterQuiz' ? ed.chapterQuizQuestions : ed.questions;
+}
+
+function addDraftQuizQuestion(scope){
+  quizArrayFor(scope).push({
     id: null,
     prompt: '',
     options: [{ key: 'a', text: '' }, { key: 'b', text: '' }, { key: 'c', text: '' }, { key: 'd', text: '' }],
@@ -4183,13 +4383,41 @@ function addDraftQuizQuestion(){
   render();
 }
 
-function removeDraftQuizQuestion(idx){
-  state.academyDeskLessonEditor.questions.splice(idx, 1);
+function removeDraftQuizQuestion(scope, idx){
+  quizArrayFor(scope).splice(idx, 1);
   render();
 }
 
-function setDraftQuizCorrect(idx, key){
-  state.academyDeskLessonEditor.questions[idx].correct_key = key;
+function setDraftQuizCorrect(scope, idx, key){
+  quizArrayFor(scope)[idx].correct_key = key;
+}
+
+async function saveQuizQuestionsFor(lessonId, questions, mode){
+  const keepIds = [];
+  for(const q of questions){
+    if(!q.prompt || !q.prompt.trim()) continue;
+    if(q.id){
+      await sb.from('academy_quiz_questions').update({ prompt: q.prompt, options: q.options }).eq('id', q.id);
+      await sb.from('academy_quiz_answers').update({ correct_key: q.correct_key }).eq('question_id', q.id);
+      keepIds.push(q.id);
+    } else {
+      const { data: newQ } = await sb.from('academy_quiz_questions').insert({
+        lesson_id: lessonId, prompt: q.prompt, options: q.options, sort_order: keepIds.length
+      }).select().single();
+      if(newQ){
+        await sb.from('academy_quiz_answers').insert({ question_id: newQ.id, correct_key: q.correct_key });
+        keepIds.push(newQ.id);
+      }
+    }
+  }
+  if(mode === 'edit'){
+    const { data: existingQs } = await sb.from('academy_quiz_questions').select('id').eq('lesson_id', lessonId);
+    const toDelete = (existingQs || []).map(q => q.id).filter(id => !keepIds.includes(id));
+    if(toDelete.length){
+      await sb.from('academy_quiz_answers').delete().in('question_id', toDelete);
+      await sb.from('academy_quiz_questions').delete().in('id', toDelete);
+    }
+  }
 }
 
 async function saveAcademyLesson(){
@@ -4205,7 +4433,7 @@ async function saveAcademyLesson(){
     payload.essay_prompt = ed.essay_prompt;
     payload.essay_min_words = ed.essay_min_words;
     payload.essay_max_words = ed.essay_max_words;
-  } else if(ed.type === 'summary_quiz'){
+  } else {
     payload.pass_percent = ed.pass_percent;
   }
 
@@ -4221,36 +4449,57 @@ async function saveAcademyLesson(){
     if(error){ state.err = error.message; render(); return; }
   }
 
-  if(ed.type === 'summary_quiz'){
-    const keepIds = [];
-    for(const q of ed.questions){
-      if(!q.prompt || !q.prompt.trim()) continue;
-      if(q.id){
-        await sb.from('academy_quiz_questions').update({ prompt: q.prompt, options: q.options }).eq('id', q.id);
-        await sb.from('academy_quiz_answers').update({ correct_key: q.correct_key }).eq('question_id', q.id);
-        keepIds.push(q.id);
+  if(ed.type === 'summary_quiz' || ed.type === 'section_quiz'){
+    await saveQuizQuestionsFor(lessonId, ed.questions, ed.mode);
+  }
+
+  let lockedQuizRemovalBlocked = false;
+
+  if(ed.type === 'chapter'){
+    if(ed.quizEnabled){
+      if(ed.linkedQuizLessonId){
+        await sb.from('academy_lessons').update({ pass_percent: ed.chapterQuizPassPercent }).eq('id', ed.linkedQuizLessonId);
+        await saveQuizQuestionsFor(ed.linkedQuizLessonId, ed.chapterQuizQuestions, 'edit');
       } else {
-        const { data: newQ } = await sb.from('academy_quiz_questions').insert({
-          lesson_id: lessonId, prompt: q.prompt, options: q.options, sort_order: keepIds.length
-        }).select().single();
-        if(newQ){
-          await sb.from('academy_quiz_answers').insert({ question_id: newQ.id, correct_key: q.correct_key });
-          keepIds.push(newQ.id);
+        const siblings = state.academyDeskLessons.filter(l => l.section_id === ed.sectionId).sort((a, b) => a.sort_order - b.sort_order);
+        const chapterLesson = siblings.find(l => l.id === lessonId);
+        const chapterSortOrder = chapterLesson ? chapterLesson.sort_order : siblings.length;
+        const insertAt = chapterSortOrder + 1;
+        const toShift = siblings.filter(l => l.id !== lessonId && l.sort_order >= insertAt);
+        for(const l of toShift){
+          await sb.from('academy_lessons').update({ sort_order: l.sort_order + 1 }).eq('id', l.id);
         }
+        const { data: newQuiz, error: quizErr } = await sb.from('academy_lessons').insert({
+          title: `${title} Quiz`,
+          type: 'summary_quiz',
+          section_id: ed.sectionId,
+          course_id: state.academyDeskCourseId,
+          pass_percent: ed.chapterQuizPassPercent,
+          sort_order: insertAt
+        }).select().single();
+        if(quizErr){ state.err = quizErr.message; render(); return; }
+        await saveQuizQuestionsFor(newQuiz.id, ed.chapterQuizQuestions, 'new');
+        await sb.from('academy_lessons').update({ linked_quiz_lesson_id: newQuiz.id }).eq('id', lessonId);
       }
-    }
-    if(ed.mode === 'edit'){
-      const { data: existingQs } = await sb.from('academy_quiz_questions').select('id').eq('lesson_id', lessonId);
-      const toDelete = (existingQs || []).map(q => q.id).filter(id => !keepIds.includes(id));
-      if(toDelete.length){
-        await sb.from('academy_quiz_answers').delete().in('question_id', toDelete);
-        await sb.from('academy_quiz_questions').delete().in('id', toDelete);
+    } else if(ed.linkedQuizLessonId){
+      if(isAcademyDeskLocked()){
+        lockedQuizRemovalBlocked = true;
+      } else {
+        const { data: qs } = await sb.from('academy_quiz_questions').select('id').eq('lesson_id', ed.linkedQuizLessonId);
+        const qIds = (qs || []).map(q => q.id);
+        if(qIds.length){
+          await sb.from('academy_quiz_answers').delete().in('question_id', qIds);
+          await sb.from('academy_quiz_questions').delete().in('id', qIds);
+        }
+        await sb.from('academy_lessons').delete().eq('id', ed.linkedQuizLessonId);
       }
     }
   }
 
   state.academyDeskLessonEditor = null;
-  state.err = "";
+  state.err = lockedQuizRemovalBlocked
+    ? "This course has enrolled students — the quiz can't be removed. Your other changes were saved; content edits stay open."
+    : "";
   await loadAcademyDeskCourseDetail(state.academyDeskCourseId);
   render();
 }
@@ -4260,6 +4509,16 @@ async function deleteAcademyLesson(id){
     state.err = "This course has enrolled students — lessons can't be deleted.";
     render();
     return;
+  }
+  const lesson = state.academyDeskLessons.find(l => l.id === id);
+  if(lesson && lesson.type === 'chapter' && lesson.linked_quiz_lesson_id){
+    const { data: linkedQs } = await sb.from('academy_quiz_questions').select('id').eq('lesson_id', lesson.linked_quiz_lesson_id);
+    const linkedQIds = (linkedQs || []).map(q => q.id);
+    if(linkedQIds.length){
+      await sb.from('academy_quiz_answers').delete().in('question_id', linkedQIds);
+      await sb.from('academy_quiz_questions').delete().in('id', linkedQIds);
+    }
+    await sb.from('academy_lessons').delete().eq('id', lesson.linked_quiz_lesson_id);
   }
   const { data: qs } = await sb.from('academy_quiz_questions').select('id').eq('lesson_id', id);
   const qIds = (qs || []).map(q => q.id);
