@@ -281,6 +281,8 @@
   .academy-card-desc{font-size:13px;color:var(--slate);margin-bottom:14px;line-height:1.5;}
   .academy-section{margin-bottom:22px;}
   .academy-section-title{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ac-grad-b);margin-bottom:8px;}
+  .academy-section-title-clickable{cursor:pointer;}
+  .academy-section-title-clickable:hover{opacity:0.8;}
   .academy-lesson-row{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--ink-800);border:1px solid var(--ink-line);border-radius:8px;margin-bottom:6px;cursor:pointer;}
   .academy-lesson-row:hover{border-color:var(--ac-grad-b);}
   .academy-lesson-row.is-locked{opacity:0.5;cursor:not-allowed;}
@@ -415,6 +417,8 @@ let state = {
   academySubjects: [],
   academyCourses: [],
   academyLessons: [],
+  academySections: [],
+  academySectionOpen: {},
   academyProgress: {},
   academyEnrollments: {},
   academyCertificates: {},
@@ -427,6 +431,18 @@ let state = {
   academyEssayResult: null,
   academyTranslationLang: "",
   academyTranslationCache: {},
+  academyDeskScreen: 'catalog',
+  academyDeskCourseId: null,
+  academyDeskSubjects: [],
+  academyDeskCourses: [],
+  academyDeskSections: [],
+  academyDeskLessons: [],
+  academyDeskEnrollmentCount: 0,
+  academyDeskSectionOpen: {},
+  academyDeskRenamingSectionId: null,
+  academyDeskSectionRenameDraft: "",
+  academyDeskCourseDraft: null,
+  academyDeskLessonEditor: null,
   lists: [],
   listsLoaded: false,
   listManagerOpenId: null,
@@ -2106,6 +2122,9 @@ async function loadAcademyCatalog(){
 }
 
 async function loadAcademyCourseDetail(courseId){
+  const { data: sections } = await sb.from('academy_sections').select('*').eq('course_id', courseId).order('sort_order');
+  state.academySections = sections || [];
+
   const { data: lessons } = await sb.from('academy_lessons').select('*').eq('course_id', courseId).order('sort_order');
   state.academyLessons = lessons || [];
 
@@ -2144,6 +2163,12 @@ async function openAcademyCourse(courseId){
   render();
   await loadAcademyCourseDetail(courseId);
   await loadAcademyTranslationsForView();
+  render();
+}
+
+function toggleAcademySection(sectionId){
+  const current = state.academySectionOpen[sectionId];
+  state.academySectionOpen[sectionId] = current === undefined ? false : !current;
   render();
 }
 
@@ -2392,17 +2417,23 @@ function renderAcademyCourse(root){
   const courseTitle = (courseTr && courseTr.title) || course.title;
   const courseDesc = (courseTr && courseTr.description) || course.description;
 
-  const sections = {};
+  const lessonsBySection = {};
   state.academyLessons.forEach(l => {
-    if(!sections[l.section_number]) sections[l.section_number] = [];
-    sections[l.section_number].push(l);
+    const key = l.section_id || 'unsectioned';
+    if(!lessonsBySection[key]) lessonsBySection[key] = [];
+    lessonsBySection[key].push(l);
   });
+
+  const orderedSections = state.academySections.slice().sort((a, b) => a.sort_order - b.sort_order);
 
   const typeLabel = (l) => l.type === 'chapter' ? `Chapter ${l.chapter_number}` : l.type === 'essay' ? 'Essay' : 'Quiz';
   const statusIcon = (status) => status === 'completed' ? '✓' : status === 'unlocked' ? '○' : '🔒';
 
-  const sectionsHtml = Object.keys(sections).sort((a,b) => a - b).map(secNum => {
-    const rows = sections[secNum].map(l => {
+  const sectionsHtml = orderedSections.map(sec => {
+    const lessons = lessonsBySection[sec.id] || [];
+    if(!lessons.length) return '';
+    const isOpen = state.academySectionOpen[sec.id] === undefined ? true : state.academySectionOpen[sec.id];
+    const rows = isOpen ? lessons.map(l => {
       const status = academyLessonStatus(l.id);
       const clickable = status !== 'locked';
       const lessonTr = academyTr('lesson', l.id);
@@ -2415,10 +2446,12 @@ function renderAcademyCourse(root){
           <span class="academy-lesson-title">${escapeHtml(lessonTitle)}</span>
           <span class="academy-lesson-type">${typeLabel(l)}${scoreTag}</span>
         </div>`;
-    }).join('');
+    }).join('') : '';
     return `
       <div class="academy-section">
-        <div class="academy-section-title">Section ${secNum}</div>
+        <div class="academy-section-title academy-section-title-clickable" onclick="toggleAcademySection('${sec.id}')">
+          ${isOpen ? '▾' : '▸'} ${escapeHtml(sec.title)}
+        </div>
         ${rows}
       </div>`;
   }).join('');
@@ -2431,8 +2464,7 @@ function renderAcademyCourse(root){
       <div class="academy-hero-sub">${escapeHtml(courseDesc || '')}</div>
       ${academyTranslationNoteHtml('course', course.id)}
     </div>
-    <div class="academy-body">
-      ${state.err ? `<div class="hint" style="color:var(--rust);text-align:left;margin-bottom:14px;">${escapeHtml(state.err)}</div>` : ''}
+    <div class="academy-body">      ${state.err ? `<div class="hint" style="color:var(--rust);text-align:left;margin-bottom:14px;">${escapeHtml(state.err)}</div>` : ''}
       ${sectionsHtml}
     </div>`;
 }
@@ -2543,6 +2575,261 @@ function renderAcademyCertificate(root){
 function stampHtml(status){
   const label = status === "approved" ? "Approved" : status === "pending" ? "Pending" : "Declined";
   return `<div class="stamp ${status}">${label}</div>`;
+}
+
+// ===== Academy Desk (editor content management) =====
+
+function renderAcademyDesk(main){
+  main.innerHTML = `<div class="scroll-panel" id="academyDeskRoot"></div>`;
+  const root = document.getElementById('academyDeskRoot');
+  if(state.academyDeskScreen === 'course' && state.academyDeskCourseId){
+    renderAcademyDeskCourseEditor(root);
+  } else {
+    renderAcademyDeskCatalog(root);
+  }
+}
+
+function renderAcademyDeskCatalog(root){
+  const subjectsHtml = state.academyDeskSubjects.map(subj => {
+    const courses = state.academyDeskCourses.filter(c => c.subject_id === subj.id).sort((a, b) => a.sort_order - b.sort_order);
+    const courseRows = courses.map(c => `
+      <div class="list-manager-item">
+        <div class="list-manager-item-title">
+          ${escapeHtml(c.title)}
+          <span class="stamp-mini ${c.status === 'published' ? 'approved' : 'pending'}">${c.status}</span>
+        </div>
+        <button class="btn btn-ghost btn-small" onclick="openAcademyDeskCourse('${c.id}')">Edit</button>
+      </div>`).join('');
+    return `
+      <div class="list-manager-card">
+        <div class="list-manager-head">
+          <div class="list-manager-title">${escapeHtml(subj.title)}</div>
+          <div class="row" style="gap:6px;">
+            <button class="btn btn-ghost btn-small" onclick="createAcademyCourse('${subj.id}')">+ Course</button>
+            <button class="btn btn-rust btn-small" onclick="deleteAcademySubject('${subj.id}')">Delete Subject</button>
+          </div>
+        </div>
+        <div class="list-manager-body">
+          ${courseRows || `<div class="hint" style="text-align:left;">No courses yet.</div>`}
+        </div>
+      </div>`;
+  }).join('');
+
+  root.innerHTML = `
+    <div class="narrow" style="padding:28px 24px;">
+      <p class="welcome-heading" style="margin-top:0;">Academy Desk</p>
+      ${state.err ? `<div class="hint" style="color:var(--rust);text-align:left;margin-bottom:14px;">${escapeHtml(state.err)}</div>` : ''}
+      ${subjectsHtml || `<div class="hint" style="text-align:left;">No subjects yet — add one below.</div>`}
+      <div class="row" style="margin-top:20px;gap:8px;">
+        <input type="text" id="newAcademySubjectName" placeholder="New subject, e.g. Life of Christ" style="flex:1;">
+        <button class="btn btn-gold btn-small" onclick="createAcademySubject()">Add Subject</button>
+      </div>
+    </div>`;
+
+  const input = document.getElementById('newAcademySubjectName');
+  if(input) input.onkeydown = e => { if(e.key === 'Enter') createAcademySubject(); };
+}
+
+function renderAcademyDeskCourseEditor(root){
+  const course = state.academyDeskCourses.find(c => c.id === state.academyDeskCourseId);
+  if(!course){ root.innerHTML = `<div class="narrow" style="padding:28px 24px;"><p class="hint">Course not found.</p></div>`; return; }
+  const locked = isAcademyDeskLocked();
+  const draft = state.academyDeskCourseDraft;
+
+  const courseFieldsHtml = draft ? `
+    <div class="list-manager-card">
+      <input type="text" id="academyDeskCourseTitleInput" value="${escapeHtml(draft.title)}" placeholder="Course title" style="width:100%;margin-bottom:8px;">
+      <textarea id="academyDeskCourseDescInput" placeholder="Course description" style="width:100%;min-height:60px;margin-bottom:8px;">${escapeHtml(draft.description)}</textarea>
+      <div class="row" style="gap:8px;margin-bottom:8px;">
+        <select id="academyDeskCourseSubjectInput" class="filter-select">
+          ${state.academyDeskSubjects.map(s => `<option value="${s.id}" ${draft.subject_id === s.id ? 'selected' : ''}>${escapeHtml(s.title)}</option>`).join('')}
+        </select>
+        <select id="academyDeskCourseStatusInput" class="filter-select">
+          <option value="draft" ${draft.status === 'draft' ? 'selected' : ''}>Draft</option>
+          <option value="published" ${draft.status === 'published' ? 'selected' : ''}>Published</option>
+        </select>
+      </div>
+      <div class="row" style="gap:8px;">
+        <button class="btn btn-gold btn-small" onclick="saveAcademyCourseFields()">Save</button>
+        <button class="btn btn-ghost btn-small" onclick="cancelEditAcademyCourseFields()">Cancel</button>
+      </div>
+    </div>` : `
+    <div class="list-manager-card">
+      <div class="list-manager-head">
+        <div class="list-manager-title">${escapeHtml(course.title)} <span class="stamp-mini ${course.status === 'published' ? 'approved' : 'pending'}">${course.status}</span></div>
+        <div class="row" style="gap:6px;">
+          <button class="btn btn-ghost btn-small" onclick="startEditAcademyCourseFields()">Edit Course Info</button>
+          ${locked ? '' : `<button class="btn btn-rust btn-small" onclick="deleteAcademyCourse('${course.id}')">Delete Course</button>`}
+        </div>
+      </div>
+      <div class="hint" style="text-align:left;margin-top:6px;">${escapeHtml(course.description || 'No description yet.')}</div>
+    </div>`;
+
+  const lockedNotice = locked ? `
+    <div class="hint" style="text-align:left;margin:12px 0;color:var(--amber);">
+      🔒 ${state.academyDeskEnrollmentCount} student${state.academyDeskEnrollmentCount === 1 ? '' : 's'} enrolled — sections and lessons can't be deleted or reordered. Content edits and adding new material are still open.
+    </div>` : '';
+
+  const sortedSections = state.academyDeskSections.slice().sort((a, b) => a.sort_order - b.sort_order);
+  const sectionsHtml = sortedSections.map((sec, secIdx) => {
+    const isOpen = state.academyDeskSectionOpen[sec.id] === undefined ? true : state.academyDeskSectionOpen[sec.id];
+    const lessons = state.academyDeskLessons.filter(l => l.section_id === sec.id).sort((a, b) => a.sort_order - b.sort_order);
+    const isRenaming = state.academyDeskRenamingSectionId === sec.id;
+
+    const titleHtml = isRenaming ? `
+        <input type="text" id="academyDeskSectionRenameInput" value="${escapeHtml(state.academyDeskSectionRenameDraft)}" style="flex:1;">
+        <button class="btn btn-gold btn-small" onclick="saveRenameAcademySection('${sec.id}')">Save</button>
+        <button class="btn btn-ghost btn-small" onclick="cancelRenameAcademySection()">Cancel</button>`
+      : `
+        <div class="list-manager-title academy-section-title-clickable" style="flex:1;" onclick="toggleAcademyDeskSection('${sec.id}')">${isOpen ? '▾' : '▸'} ${escapeHtml(sec.title)} <span class="hint" style="margin:0;">(${lessons.length})</span></div>
+        <button class="btn btn-ghost btn-small" onclick="startRenameAcademySection('${sec.id}')">Rename</button>
+        ${locked ? '' : `
+          <button class="btn btn-ghost btn-small" ${secIdx === 0 ? 'disabled' : ''} onclick="moveAcademySection('${sec.id}','up')">↑</button>
+          <button class="btn btn-ghost btn-small" ${secIdx === sortedSections.length - 1 ? 'disabled' : ''} onclick="moveAcademySection('${sec.id}','down')">↓</button>
+          <button class="btn btn-rust btn-small" onclick="deleteAcademySection('${sec.id}')">Delete</button>`}`;
+
+    const lessonRows = isOpen ? lessons.map((l, lIdx) => {
+      const typeLabel = l.type === 'chapter' ? `Chapter${l.chapter_number != null ? ' ' + l.chapter_number : ''}` : l.type === 'essay' ? 'Essay' : 'Quiz';
+      return `
+        <div class="list-manager-item">
+          <div class="list-manager-item-title">${escapeHtml(l.title)} <span class="hint" style="margin:0;">${typeLabel}</span></div>
+          <button class="btn btn-ghost btn-small" onclick="openEditLessonEditor('${l.id}')">Edit</button>
+          ${locked ? '' : `
+            <button class="btn btn-ghost btn-small" ${lIdx === 0 ? 'disabled' : ''} onclick="moveAcademyLesson('${l.id}','up')">↑</button>
+            <button class="btn btn-ghost btn-small" ${lIdx === lessons.length - 1 ? 'disabled' : ''} onclick="moveAcademyLesson('${l.id}','down')">↓</button>
+            <button class="btn btn-rust btn-small" onclick="deleteAcademyLesson('${l.id}')">Delete</button>`}
+        </div>`;
+    }).join('') : '';
+
+    const addLessonRow = isOpen ? `
+      <div class="row" style="margin-top:10px;gap:6px;">
+        <button class="btn btn-ghost btn-small" onclick="openNewLessonEditor('${sec.id}','chapter')">+ Chapter</button>
+        <button class="btn btn-ghost btn-small" onclick="openNewLessonEditor('${sec.id}','essay')">+ Essay</button>
+        <button class="btn btn-ghost btn-small" onclick="openNewLessonEditor('${sec.id}','summary_quiz')">+ Quiz</button>
+      </div>` : '';
+
+    return `
+      <div class="list-manager-card">
+        <div class="list-manager-head">${titleHtml}</div>
+        <div class="list-manager-body">
+          ${lessons.length ? lessonRows : (isOpen ? `<div class="hint" style="text-align:left;">No lessons in this section yet.</div>` : '')}
+          ${addLessonRow}
+        </div>
+      </div>`;
+  }).join('');
+
+  const lessonEditorHtml = state.academyDeskLessonEditor ? academyLessonEditorHtml() : '';
+
+  root.innerHTML = `
+    <div class="narrow" style="padding:28px 24px;">
+      <a href="javascript:void(0)" onclick="backToAcademyDeskCatalog()">← Academy Desk</a>
+      <p class="welcome-heading">${escapeHtml(course.title)}</p>
+      ${state.err ? `<div class="hint" style="color:var(--rust);text-align:left;margin-bottom:14px;">${escapeHtml(state.err)}</div>` : ''}
+      ${courseFieldsHtml}
+      ${lockedNotice}
+      ${sectionsHtml}
+      <div class="row" style="margin-top:14px;gap:8px;">
+        <input type="text" id="newAcademySectionTitle" placeholder="New section title, e.g. Historical Background" style="flex:1;">
+        <button class="btn btn-ghost btn-small" onclick="createAcademySection()">Add Section</button>
+      </div>
+      ${lessonEditorHtml}
+    </div>`;
+
+  const newSectionInput = document.getElementById('newAcademySectionTitle');
+  if(newSectionInput) newSectionInput.onkeydown = e => { if(e.key === 'Enter') createAcademySection(); };
+
+  if(draft){
+    const titleEl = document.getElementById('academyDeskCourseTitleInput');
+    if(titleEl) titleEl.oninput = e => { draft.title = e.target.value; };
+    const descEl = document.getElementById('academyDeskCourseDescInput');
+    if(descEl) descEl.oninput = e => { draft.description = e.target.value; };
+    const subjEl = document.getElementById('academyDeskCourseSubjectInput');
+    if(subjEl) subjEl.onchange = e => { draft.subject_id = e.target.value; };
+    const statusEl = document.getElementById('academyDeskCourseStatusInput');
+    if(statusEl) statusEl.onchange = e => { draft.status = e.target.value; };
+  }
+
+  if(state.academyDeskRenamingSectionId){
+    const rn = document.getElementById('academyDeskSectionRenameInput');
+    if(rn) rn.oninput = e => { state.academyDeskSectionRenameDraft = e.target.value; };
+  }
+
+  wireAcademyLessonEditorInputs();
+}
+
+function academyLessonEditorHtml(){
+  const ed = state.academyDeskLessonEditor;
+  const typeFields = ed.type === 'chapter' ? `
+      <input type="number" id="academyDeskLessonChapterNumber" value="${ed.chapter_number != null ? ed.chapter_number : ''}" placeholder="Chapter number, e.g. 1" style="width:200px;margin-bottom:8px;">
+      <textarea id="academyDeskLessonHtmlContent" placeholder="Chapter content (HTML)" style="width:100%;min-height:200px;">${escapeHtml(ed.html_content)}</textarea>`
+    : ed.type === 'essay' ? `
+      <textarea id="academyDeskLessonEssayPrompt" placeholder="Essay prompt" style="width:100%;min-height:100px;margin-bottom:8px;">${escapeHtml(ed.essay_prompt)}</textarea>
+      <div class="row" style="gap:8px;">
+        <input type="number" id="academyDeskLessonEssayMin" value="${ed.essay_min_words}" placeholder="Min words" style="width:140px;">
+        <input type="number" id="academyDeskLessonEssayMax" value="${ed.essay_max_words}" placeholder="Max words" style="width:140px;">
+      </div>`
+    : `
+      <input type="number" id="academyDeskLessonPassPercent" value="${ed.pass_percent}" placeholder="Pass %" style="width:140px;margin-bottom:12px;">
+      <div id="academyDeskQuizQuestionsWrap">
+        ${ed.questions.map((q, idx) => academyDeskQuizQuestionRowHtml(q, idx)).join('')}
+      </div>
+      <button class="btn btn-ghost btn-small" onclick="addDraftQuizQuestion()">+ Add Question</button>`;
+
+  return `
+    <div class="list-manager-card" style="margin-top:16px;border-color:var(--gold);">
+      <div class="list-manager-title" style="margin-bottom:10px;">${ed.mode === 'new' ? 'New' : 'Edit'} ${ed.type === 'chapter' ? 'Chapter' : ed.type === 'essay' ? 'Essay' : 'Quiz'}</div>
+      <input type="text" id="academyDeskLessonTitle" value="${escapeHtml(ed.title)}" placeholder="Lesson title" style="width:100%;margin-bottom:8px;">
+      ${typeFields}
+      <div class="row" style="margin-top:14px;gap:8px;">
+        <button class="btn btn-gold btn-small" onclick="saveAcademyLesson()">Save Lesson</button>
+        <button class="btn btn-ghost btn-small" onclick="cancelAcademyLessonEditor()">Cancel</button>
+      </div>
+    </div>`;
+}
+
+function academyDeskQuizQuestionRowHtml(q, idx){
+  return `
+    <div class="list-manager-item" style="flex-direction:column;align-items:stretch;gap:6px;">
+      <input type="text" id="academyDeskQQPrompt-${idx}" value="${escapeHtml(q.prompt)}" placeholder="Question prompt" style="width:100%;">
+      ${q.options.map((opt, optIdx) => `
+        <div class="row" style="gap:6px;align-items:center;">
+          <input type="radio" name="academyDeskQQCorrect-${idx}" ${q.correct_key === opt.key ? 'checked' : ''} onchange="setDraftQuizCorrect(${idx}, '${opt.key}')">
+          <input type="text" id="academyDeskQQOpt-${idx}-${optIdx}" value="${escapeHtml(opt.text)}" placeholder="Option ${opt.key.toUpperCase()}" style="flex:1;">
+        </div>`).join('')}
+      <button class="btn btn-rust btn-small" onclick="removeDraftQuizQuestion(${idx})" style="align-self:flex-end;">Remove Question</button>
+    </div>`;
+}
+
+function wireAcademyLessonEditorInputs(){
+  const ed = state.academyDeskLessonEditor;
+  if(!ed) return;
+  const titleEl = document.getElementById('academyDeskLessonTitle');
+  if(titleEl) titleEl.oninput = e => { ed.title = e.target.value; };
+
+  if(ed.type === 'chapter'){
+    const chNum = document.getElementById('academyDeskLessonChapterNumber');
+    if(chNum) chNum.oninput = e => { ed.chapter_number = e.target.value ? parseInt(e.target.value, 10) : null; };
+    const html = document.getElementById('academyDeskLessonHtmlContent');
+    if(html) html.oninput = e => { ed.html_content = e.target.value; };
+  } else if(ed.type === 'essay'){
+    const prompt = document.getElementById('academyDeskLessonEssayPrompt');
+    if(prompt) prompt.oninput = e => { ed.essay_prompt = e.target.value; };
+    const min = document.getElementById('academyDeskLessonEssayMin');
+    if(min) min.oninput = e => { ed.essay_min_words = parseInt(e.target.value, 10) || 0; };
+    const max = document.getElementById('academyDeskLessonEssayMax');
+    if(max) max.oninput = e => { ed.essay_max_words = parseInt(e.target.value, 10) || 0; };
+  } else {
+    const pass = document.getElementById('academyDeskLessonPassPercent');
+    if(pass) pass.oninput = e => { ed.pass_percent = parseInt(e.target.value, 10) || 0; };
+    ed.questions.forEach((q, idx) => {
+      const pEl = document.getElementById(`academyDeskQQPrompt-${idx}`);
+      if(pEl) pEl.oninput = e => { q.prompt = e.target.value; };
+      q.options.forEach((opt, optIdx) => {
+        const oEl = document.getElementById(`academyDeskQQOpt-${idx}-${optIdx}`);
+        if(oEl) oEl.oninput = e => { opt.text = e.target.value; };
+      });
+    });
+  }
 }
 
 function stampMini(status){
@@ -3602,6 +3889,412 @@ function setDeskSubView(v){
   render();
 }
 
+// ===== Academy Desk (editor content management) =====
+
+function isAcademyDeskLocked(){
+  return state.academyDeskEnrollmentCount > 0;
+}
+
+async function loadAcademyDeskCatalog(){
+  const { data: subjects } = await sb.from('academy_subjects').select('*').order('sort_order');
+  const { data: courses } = await sb.from('academy_courses').select('*').order('sort_order');
+  state.academyDeskSubjects = subjects || [];
+  state.academyDeskCourses = courses || [];
+}
+
+async function loadAcademyDeskCourseDetail(courseId){
+  const { data: sections } = await sb.from('academy_sections').select('*').eq('course_id', courseId).order('sort_order');
+  state.academyDeskSections = sections || [];
+  const { data: lessons } = await sb.from('academy_lessons').select('*').eq('course_id', courseId).order('sort_order');
+  state.academyDeskLessons = lessons || [];
+  const { count } = await sb.from('academy_enrollments').select('*', { count: 'exact', head: true }).eq('course_id', courseId);
+  state.academyDeskEnrollmentCount = count || 0;
+}
+
+function openAcademyDeskCourse(courseId){
+  state.academyDeskScreen = 'course';
+  state.academyDeskCourseId = courseId;
+  state.academyDeskCourseDraft = null;
+  state.academyDeskLessonEditor = null;
+  state.academyDeskRenamingSectionId = null;
+  state.err = "";
+  render();
+  loadAcademyDeskCourseDetail(courseId).then(render);
+}
+
+function backToAcademyDeskCatalog(){
+  state.academyDeskScreen = 'catalog';
+  state.academyDeskCourseId = null;
+  state.err = "";
+  render();
+}
+
+// --- Subjects ---
+
+async function createAcademySubject(){
+  const input = document.getElementById('newAcademySubjectName');
+  const title = (input.value || '').trim();
+  if(!title) return;
+  const { error } = await sb.from('academy_subjects').insert({ title, sort_order: state.academyDeskSubjects.length });
+  if(error){ state.err = error.message; render(); return; }
+  input.value = '';
+  state.err = "";
+  await loadAcademyDeskCatalog();
+  render();
+}
+
+async function deleteAcademySubject(id){
+  const hasCourses = state.academyDeskCourses.some(c => c.subject_id === id);
+  if(hasCourses){
+    state.err = "Can't delete a subject that still has courses under it — move or delete those first.";
+    render();
+    return;
+  }
+  const { error } = await sb.from('academy_subjects').delete().eq('id', id);
+  if(error){ state.err = error.message; }
+  else state.err = "";
+  await loadAcademyDeskCatalog();
+  render();
+}
+
+// --- Courses ---
+
+async function createAcademyCourse(subjectId){
+  const existingInSubject = state.academyDeskCourses.filter(c => c.subject_id === subjectId).length;
+  const { data, error } = await sb.from('academy_courses').insert({
+    subject_id: subjectId,
+    title: 'New Course',
+    description: '',
+    status: 'draft',
+    sort_order: existingInSubject
+  }).select().single();
+  if(error){ state.err = error.message; render(); return; }
+  state.err = "";
+  await loadAcademyDeskCatalog();
+  openAcademyDeskCourse(data.id);
+}
+
+function startEditAcademyCourseFields(){
+  const course = state.academyDeskCourses.find(c => c.id === state.academyDeskCourseId);
+  if(!course) return;
+  state.academyDeskCourseDraft = {
+    title: course.title,
+    description: course.description || '',
+    subject_id: course.subject_id,
+    status: course.status
+  };
+  render();
+}
+
+function cancelEditAcademyCourseFields(){
+  state.academyDeskCourseDraft = null;
+  render();
+}
+
+async function saveAcademyCourseFields(){
+  const d = state.academyDeskCourseDraft;
+  if(!d || !d.title.trim()){ state.err = "Course needs a title."; render(); return; }
+  const { error } = await sb.from('academy_courses').update({
+    title: d.title.trim(),
+    description: d.description,
+    subject_id: d.subject_id,
+    status: d.status
+  }).eq('id', state.academyDeskCourseId);
+  if(error){ state.err = error.message; render(); return; }
+  state.academyDeskCourseDraft = null;
+  state.err = "";
+  await loadAcademyDeskCatalog();
+  render();
+}
+
+async function deleteAcademyCourse(id){
+  if(isAcademyDeskLocked()){
+    state.err = "This course has enrolled students — it can't be deleted.";
+    render();
+    return;
+  }
+  const { error } = await sb.from('academy_courses').delete().eq('id', id);
+  if(error){ state.err = error.message; render(); return; }
+  state.err = "";
+  await loadAcademyDeskCatalog();
+  backToAcademyDeskCatalog();
+}
+
+// --- Sections ---
+
+async function createAcademySection(){
+  const input = document.getElementById('newAcademySectionTitle');
+  const title = (input.value || '').trim();
+  if(!title) return;
+  const { error } = await sb.from('academy_sections').insert({
+    course_id: state.academyDeskCourseId,
+    title,
+    sort_order: state.academyDeskSections.length
+  });
+  if(error){ state.err = error.message; render(); return; }
+  input.value = '';
+  state.err = "";
+  await loadAcademyDeskCourseDetail(state.academyDeskCourseId);
+  render();
+}
+
+function startRenameAcademySection(id){
+  const sec = state.academyDeskSections.find(s => s.id === id);
+  if(!sec) return;
+  state.academyDeskRenamingSectionId = id;
+  state.academyDeskSectionRenameDraft = sec.title;
+  render();
+}
+
+function cancelRenameAcademySection(){
+  state.academyDeskRenamingSectionId = null;
+  render();
+}
+
+async function saveRenameAcademySection(id){
+  const title = (state.academyDeskSectionRenameDraft || '').trim();
+  if(!title) return;
+  const { error } = await sb.from('academy_sections').update({ title }).eq('id', id);
+  if(error){ state.err = error.message; }
+  else state.err = "";
+  state.academyDeskRenamingSectionId = null;
+  await loadAcademyDeskCourseDetail(state.academyDeskCourseId);
+  render();
+}
+
+async function deleteAcademySection(id){
+  if(isAcademyDeskLocked()){
+    state.err = "This course has enrolled students — sections can't be deleted. You can still edit content and add new sections.";
+    render();
+    return;
+  }
+  const hasLessons = state.academyDeskLessons.some(l => l.section_id === id);
+  if(hasLessons){
+    state.err = "Remove or move this section's lessons before deleting it.";
+    render();
+    return;
+  }
+  const { error } = await sb.from('academy_sections').delete().eq('id', id);
+  if(error){ state.err = error.message; }
+  else state.err = "";
+  await loadAcademyDeskCourseDetail(state.academyDeskCourseId);
+  render();
+}
+
+async function moveAcademySection(id, direction){
+  if(isAcademyDeskLocked()){
+    state.err = "This course has enrolled students — reordering is locked.";
+    render();
+    return;
+  }
+  const sections = state.academyDeskSections.slice().sort((a, b) => a.sort_order - b.sort_order);
+  const idx = sections.findIndex(s => s.id === id);
+  const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+  if(idx < 0 || swapIdx < 0 || swapIdx >= sections.length) return;
+  const a = sections[idx], b = sections[swapIdx];
+  await Promise.all([
+    sb.from('academy_sections').update({ sort_order: b.sort_order }).eq('id', a.id),
+    sb.from('academy_sections').update({ sort_order: a.sort_order }).eq('id', b.id)
+  ]);
+  await loadAcademyDeskCourseDetail(state.academyDeskCourseId);
+  render();
+}
+
+function toggleAcademyDeskSection(id){
+  const current = state.academyDeskSectionOpen[id];
+  state.academyDeskSectionOpen[id] = current === undefined ? false : !current;
+  render();
+}
+
+// --- Lessons ---
+
+function openNewLessonEditor(sectionId, type){
+  state.academyDeskLessonEditor = {
+    mode: 'new',
+    sectionId,
+    id: null,
+    type: type || 'chapter',
+    title: '',
+    html_content: '',
+    essay_prompt: '',
+    essay_min_words: 150,
+    essay_max_words: 500,
+    pass_percent: 70,
+    chapter_number: null,
+    questions: []
+  };
+  render();
+}
+
+function openEditLessonEditor(lessonId){
+  const l = state.academyDeskLessons.find(x => x.id === lessonId);
+  if(!l) return;
+  state.academyDeskLessonEditor = {
+    mode: 'edit',
+    sectionId: l.section_id,
+    id: l.id,
+    type: l.type,
+    title: l.title,
+    html_content: l.html_content || '',
+    essay_prompt: l.essay_prompt || '',
+    essay_min_words: l.essay_min_words || 150,
+    essay_max_words: l.essay_max_words || 500,
+    pass_percent: l.pass_percent || 70,
+    chapter_number: l.chapter_number,
+    questions: []
+  };
+  render();
+  if(l.type === 'summary_quiz'){
+    loadAcademyDeskQuizQuestions(lessonId).then(render);
+  }
+}
+
+function cancelAcademyLessonEditor(){
+  state.academyDeskLessonEditor = null;
+  render();
+}
+
+async function loadAcademyDeskQuizQuestions(lessonId){
+  const { data: questions } = await sb.from('academy_quiz_questions').select('*').eq('lesson_id', lessonId).order('sort_order');
+  const qs = questions || [];
+  const ids = qs.map(q => q.id);
+  let answersMap = {};
+  if(ids.length){
+    const { data: answers } = await sb.from('academy_quiz_answers').select('*').in('question_id', ids);
+    (answers || []).forEach(a => { answersMap[a.question_id] = a.correct_key; });
+  }
+  if(state.academyDeskLessonEditor && state.academyDeskLessonEditor.id === lessonId){
+    state.academyDeskLessonEditor.questions = qs.map(q => ({
+      id: q.id,
+      prompt: q.prompt,
+      options: q.options,
+      correct_key: answersMap[q.id] || (q.options[0] && q.options[0].key)
+    }));
+  }
+}
+
+function addDraftQuizQuestion(){
+  state.academyDeskLessonEditor.questions.push({
+    id: null,
+    prompt: '',
+    options: [{ key: 'a', text: '' }, { key: 'b', text: '' }, { key: 'c', text: '' }, { key: 'd', text: '' }],
+    correct_key: 'a'
+  });
+  render();
+}
+
+function removeDraftQuizQuestion(idx){
+  state.academyDeskLessonEditor.questions.splice(idx, 1);
+  render();
+}
+
+function setDraftQuizCorrect(idx, key){
+  state.academyDeskLessonEditor.questions[idx].correct_key = key;
+}
+
+async function saveAcademyLesson(){
+  const ed = state.academyDeskLessonEditor;
+  const title = (ed.title || '').trim();
+  if(!title){ state.err = "Lesson needs a title."; render(); return; }
+
+  const payload = { title, type: ed.type, section_id: ed.sectionId, course_id: state.academyDeskCourseId };
+  if(ed.type === 'chapter'){
+    payload.html_content = ed.html_content;
+    payload.chapter_number = ed.chapter_number;
+  } else if(ed.type === 'essay'){
+    payload.essay_prompt = ed.essay_prompt;
+    payload.essay_min_words = ed.essay_min_words;
+    payload.essay_max_words = ed.essay_max_words;
+  } else if(ed.type === 'summary_quiz'){
+    payload.pass_percent = ed.pass_percent;
+  }
+
+  let lessonId = ed.id;
+  if(ed.mode === 'new'){
+    const sectionLessons = state.academyDeskLessons.filter(l => l.section_id === ed.sectionId);
+    payload.sort_order = sectionLessons.length;
+    const { data, error } = await sb.from('academy_lessons').insert(payload).select().single();
+    if(error){ state.err = error.message; render(); return; }
+    lessonId = data.id;
+  } else {
+    const { error } = await sb.from('academy_lessons').update(payload).eq('id', lessonId);
+    if(error){ state.err = error.message; render(); return; }
+  }
+
+  if(ed.type === 'summary_quiz'){
+    const keepIds = [];
+    for(const q of ed.questions){
+      if(!q.prompt || !q.prompt.trim()) continue;
+      if(q.id){
+        await sb.from('academy_quiz_questions').update({ prompt: q.prompt, options: q.options }).eq('id', q.id);
+        await sb.from('academy_quiz_answers').update({ correct_key: q.correct_key }).eq('question_id', q.id);
+        keepIds.push(q.id);
+      } else {
+        const { data: newQ } = await sb.from('academy_quiz_questions').insert({
+          lesson_id: lessonId, prompt: q.prompt, options: q.options, sort_order: keepIds.length
+        }).select().single();
+        if(newQ){
+          await sb.from('academy_quiz_answers').insert({ question_id: newQ.id, correct_key: q.correct_key });
+          keepIds.push(newQ.id);
+        }
+      }
+    }
+    if(ed.mode === 'edit'){
+      const { data: existingQs } = await sb.from('academy_quiz_questions').select('id').eq('lesson_id', lessonId);
+      const toDelete = (existingQs || []).map(q => q.id).filter(id => !keepIds.includes(id));
+      if(toDelete.length){
+        await sb.from('academy_quiz_answers').delete().in('question_id', toDelete);
+        await sb.from('academy_quiz_questions').delete().in('id', toDelete);
+      }
+    }
+  }
+
+  state.academyDeskLessonEditor = null;
+  state.err = "";
+  await loadAcademyDeskCourseDetail(state.academyDeskCourseId);
+  render();
+}
+
+async function deleteAcademyLesson(id){
+  if(isAcademyDeskLocked()){
+    state.err = "This course has enrolled students — lessons can't be deleted.";
+    render();
+    return;
+  }
+  const { data: qs } = await sb.from('academy_quiz_questions').select('id').eq('lesson_id', id);
+  const qIds = (qs || []).map(q => q.id);
+  if(qIds.length){
+    await sb.from('academy_quiz_answers').delete().in('question_id', qIds);
+    await sb.from('academy_quiz_questions').delete().in('id', qIds);
+  }
+  const { error } = await sb.from('academy_lessons').delete().eq('id', id);
+  if(error){ state.err = error.message; }
+  else state.err = "";
+  await loadAcademyDeskCourseDetail(state.academyDeskCourseId);
+  render();
+}
+
+async function moveAcademyLesson(lessonId, direction){
+  if(isAcademyDeskLocked()){
+    state.err = "This course has enrolled students — reordering is locked.";
+    render();
+    return;
+  }
+  const lesson = state.academyDeskLessons.find(l => l.id === lessonId);
+  if(!lesson) return;
+  const siblings = state.academyDeskLessons.filter(l => l.section_id === lesson.section_id).sort((a, b) => a.sort_order - b.sort_order);
+  const idx = siblings.findIndex(l => l.id === lessonId);
+  const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+  if(idx < 0 || swapIdx < 0 || swapIdx >= siblings.length) return;
+  const a = siblings[idx], b = siblings[swapIdx];
+  await Promise.all([
+    sb.from('academy_lessons').update({ sort_order: b.sort_order }).eq('id', a.id),
+    sb.from('academy_lessons').update({ sort_order: a.sort_order }).eq('id', b.id)
+  ]);
+  await loadAcademyDeskCourseDetail(state.academyDeskCourseId);
+  render();
+}
+
 // ===== Site-wide Announcement (public, single active banner) =====
 
 function activeAnnouncement(){
@@ -3691,6 +4384,7 @@ function renderNav(){
   }
   if(isEditor()){
     tabs.push({id:'users', label:'User Desk'});
+    tabs.push({id:'academyDesk', label:'Academy Desk'});
   }
   nav.innerHTML = tabs.map(t => `
     <button class="${state.view===t.id?'active':''}" onclick="setView('${t.id}')">
@@ -3750,6 +4444,13 @@ function setView(v){
     state.academySelectedCourseId = null;
     state.academySelectedLessonId = null;
     loadAcademyCatalog().then(loadAcademyTranslationsForView).then(render);
+  }
+  if(v === 'academyDesk'){
+    state.academyDeskScreen = 'catalog';
+    state.academyDeskCourseId = null;
+    state.academyDeskLessonEditor = null;
+    state.academyDeskCourseDraft = null;
+    loadAcademyDeskCatalog().then(render);
   }
 }
 
@@ -3826,6 +4527,15 @@ function renderMain(){
       return;
     }
     renderAcademy(main);
+    return;
+  }
+
+  if(state.view === 'academyDesk'){
+    if(!isEditor()){
+      main.innerHTML = `<div class="scroll-panel"><div class="narrow"><div class="locked-msg"><div class="glyph">†</div><p>Editor access only.</p></div></div></div>`;
+      return;
+    }
+    renderAcademyDesk(main);
     return;
   }
 
