@@ -393,6 +393,9 @@ let state = {
   submitSubcategoryId: "",
   deskGroupFilter: null,
   reviewGroupFilter: null,
+  reviewSubView: 'articles',
+  academyEssaySubmissions: [],
+  academyEssaySubmissionsLoaded: false,
   reviewNoteDraft: "",
   forumQuestions: [],
   forumQuestionsLoaded: false,
@@ -2277,6 +2280,22 @@ async function submitAcademyEssay(){
     render();
     return;
   }
+  // The RPC above only validates word count and marks the lesson complete —
+  // it doesn't persist the essay text anywhere. This upsert is what makes
+  // the writing itself reviewable; RLS only allows a student to write their
+  // own row as 'pending', so this can never self-approve.
+  await sb.from('academy_essay_submissions').upsert({
+    lesson_id: lessonId,
+    user_id: state.session.user.id,
+    student_name: displayName(),
+    student_email: state.session.user.email,
+    body,
+    word_count: academyWordCount(body),
+    status: 'pending',
+    reviewed_by: null,
+    reviewed_at: null,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'lesson_id,user_id' });
   state.academyEssayResult = data;
   await loadAcademyCatalog();
   await loadAcademyCourseDetail(state.academySelectedCourseId);
@@ -2286,6 +2305,120 @@ async function submitAcademyEssay(){
 function academyWordCount(text){
   const t = (text || '').trim();
   return t ? t.split(/\s+/).length : 0;
+}
+
+// ===== Essay review (Review Desk "Essays" subtab) =====
+
+function setReviewSubView(v){
+  state.reviewSubView = v;
+  state.reviewGroupFilter = null;
+  state.selectedId = null;
+  render();
+}
+
+async function loadAcademyEssaySubmissions(){
+  const { data } = await sb.from('academy_essay_submissions').select('*').order('created_at', { ascending: false });
+  const subs = data || [];
+
+  // Review Desk doesn't otherwise load Academy lesson/course data — fetch
+  // just enough context (lesson + course title) to show each submission
+  // meaningfully, without pulling in the whole Academy Desk dataset.
+  const lessonIds = [...new Set(subs.map(s => s.lesson_id))];
+  let lessonMap = {};
+  if(lessonIds.length){
+    const { data: lessons } = await sb.from('academy_lessons').select('id, title, course_id').in('id', lessonIds);
+    const courseIds = [...new Set((lessons || []).map(l => l.course_id))];
+    let courseMap = {};
+    if(courseIds.length){
+      const { data: courses } = await sb.from('academy_courses').select('id, title').in('id', courseIds);
+      (courses || []).forEach(c => { courseMap[c.id] = c.title; });
+    }
+    (lessons || []).forEach(l => { lessonMap[l.id] = { title: l.title, courseTitle: courseMap[l.course_id] || '' }; });
+  }
+
+  state.academyEssaySubmissions = subs.map(s => ({
+    ...s,
+    lessonTitle: (lessonMap[s.lesson_id] && lessonMap[s.lesson_id].title) || '(lesson not found)',
+    courseTitle: (lessonMap[s.lesson_id] && lessonMap[s.lesson_id].courseTitle) || ''
+  }));
+  state.academyEssaySubmissionsLoaded = true;
+}
+
+function essaySubmissionRowHtml(s, active){
+  return `
+    <div class="list-row ${active ? 'active' : ''}" onclick="selectArticle('${s.id}')">
+      <div class="list-row-title">${escapeHtml(s.student_name || s.student_email || 'Unknown student')}</div>
+      <div class="list-row-meta">${escapeHtml(s.lessonTitle)} · ${fmtDate(s.created_at)}</div>
+    </div>`;
+}
+
+function essaySubmissionDetailHtml(s){
+  if(!s) return `<div class="empty"><div class="glyph">†</div><p>Select an essay to review it.</p></div>`;
+  const statusTag = s.status === 'approved' ? stampHtml('approved') : s.status === 'rejected' ? stampHtml('rejected') : stampHtml('pending');
+  return `
+    <div class="detail-article">
+      ${statusTag}
+      <h2 style="margin-top:10px;">${escapeHtml(s.student_name || s.student_email || 'Unknown student')}</h2>
+      <div class="hint" style="text-align:left;margin-bottom:4px;">${escapeHtml(s.courseTitle)}${s.courseTitle ? ' — ' : ''}${escapeHtml(s.lessonTitle)}</div>
+      <div class="hint" style="text-align:left;">${s.word_count} words · submitted ${fmtDate(s.created_at)}</div>
+      ${s.reviewed_at ? `<div class="hint" style="text-align:left;">Reviewed ${fmtDate(s.reviewed_at)}</div>` : ''}
+      <div class="body-text">${escapeHtml(s.body)}</div>
+      ${s.status === 'pending' ? `
+        <div class="row" style="margin-top:20px;gap:8px;">
+          <button class="btn btn-gold" onclick="approveEssaySubmission('${s.id}')">Approve</button>
+          <button class="btn btn-rust" onclick="declineEssaySubmission('${s.id}')">Decline</button>
+        </div>` : ''}
+      ${state.err ? `<div class="hint" style="color:var(--rust);text-align:left;margin-top:10px;">${escapeHtml(state.err)}</div>` : ''}
+    </div>`;
+}
+
+async function findOrCreateAcademyEssayArticle(lessonId, lessonTitle){
+  const { data: existing } = await sb.from('articles').select('*').eq('academy_lesson_id', lessonId).maybeSingle();
+  if(existing) return existing;
+  const { data: created, error } = await sb.from('articles').insert({
+    title: `${lessonTitle} — Student Essays`,
+    body: '',
+    author_name: displayName(),
+    author_email: state.session.user.email,
+    status: 'approved',
+    academy_lesson_id: lessonId
+  }).select().single();
+  if(error){ state.err = error.message; return null; }
+  return created;
+}
+
+async function approveEssaySubmission(id){
+  const sub = state.academyEssaySubmissions.find(s => s.id === id);
+  if(!sub) return;
+  const article = await findOrCreateAcademyEssayArticle(sub.lesson_id, sub.lessonTitle);
+  if(!article){ render(); return; }
+  const separator = article.body && article.body.trim() ? '\n\n' : '';
+  const entry = `— ${sub.student_name || sub.student_email} —\n\n${sub.body}`;
+  const { error: articleErr } = await sb.from('articles').update({ body: article.body + separator + entry }).eq('id', article.id);
+  if(articleErr){ state.err = articleErr.message; render(); return; }
+  const { error } = await sb.from('academy_essay_submissions').update({
+    status: 'approved',
+    compiled_article_id: article.id,
+    reviewed_by: state.session.user.id,
+    reviewed_at: new Date().toISOString()
+  }).eq('id', id);
+  if(error){ state.err = error.message; render(); return; }
+  state.err = "";
+  await loadAcademyEssaySubmissions();
+  await loadArticles();
+  render();
+}
+
+async function declineEssaySubmission(id){
+  const { error } = await sb.from('academy_essay_submissions').update({
+    status: 'rejected',
+    reviewed_by: state.session.user.id,
+    reviewed_at: new Date().toISOString()
+  }).eq('id', id);
+  if(error){ state.err = error.message; }
+  else state.err = "";
+  await loadAcademyEssaySubmissions();
+  render();
 }
 
 // ===== Academy translations =====
@@ -4807,6 +4940,9 @@ function setView(v){
   if(v === 'users' && isEditor()){
     loadUsers().then(render);
   }
+  if(v === 'review' && isStaff()){
+    loadAcademyEssaySubmissions().then(render);
+  }
   if(v === 'messages' && state.session){
     if(isStaff()){
       loadThreads().then(render);
@@ -5107,6 +5243,31 @@ function renderMain(){
       main.innerHTML = `<div class="scroll-panel"><div class="narrow"><div class="locked-msg"><div class="glyph">†</div><p>This desk is for the editor and moderators only.</p></div></div></div>`;
       return;
     }
+    const subTabsHtml = `
+      <div class="desk-subtabs">
+        <button class="${state.reviewSubView === 'articles' ? 'active' : ''}" onclick="setReviewSubView('articles')">Articles</button>
+        <button class="${state.reviewSubView === 'essays' ? 'active' : ''}" onclick="setReviewSubView('essays')">Essays${state.academyEssaySubmissions.filter(s => s.status === 'pending').length ? ` (${state.academyEssaySubmissions.filter(s => s.status === 'pending').length})` : ''}</button>
+      </div>`;
+
+    if(state.reviewSubView === 'essays'){
+      renderSplit(main, state.academyEssaySubmissions, {
+        emptyTitle: "No essays submitted yet.",
+        rowHtml: (s, active) => essaySubmissionRowHtml(s, active),
+        detailHtml: essaySubmissionDetailHtml,
+        groupBy: s => s.status,
+        groupOrder: ['pending', 'approved', 'rejected'],
+        groupLabels: { pending: 'For Review', approved: 'Approved', rejected: 'Declined' },
+        activeGroup: state.reviewGroupFilter,
+        onGroupClick: (k) => `toggleGroupFilter('review','${k}')`,
+        topHtml: subTabsHtml,
+        welcomeHtml: `
+          <p class="welcome-heading">Essay Review</p>
+          <p class="welcome-copy">Every essay a student submits lands here individually — pending first. Approving a submission appends it into a single running article for that lesson, which is what actually shows up on the Feed.</p>
+          <p class="welcome-copy" style="margin-bottom:0;">Declining sends it back to the student, who can rewrite and resubmit.</p>`
+      });
+      return;
+    }
+
     const pending = state.articles.filter(a => a.status === 'pending');
     const published = state.articles.filter(a => a.status === 'approved');
     const reviewBase = [...pending, ...published];
@@ -5124,6 +5285,7 @@ function renderMain(){
       searchScope: 'review',
       searchPlaceholder: 'Search articles to review...',
       authorSourceList: reviewBase,
+      topHtml: subTabsHtml,
       welcomeHtml: `
         <p class="welcome-heading">Review Desk</p>
         <p class="welcome-copy">This is your editorial queue. Every article waiting on a decision, plus everything already published, shows up on the left — pending pieces first, so nothing sits unreviewed for long.</p>
