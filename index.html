@@ -301,12 +301,21 @@
   .academy-quiz-result{padding:16px;border-radius:8px;margin-top:10px;}
   .academy-quiz-result.passed{background:rgba(139,178,110,0.12);border:1px solid #8bb26e;}
   .academy-quiz-result.failed{background:rgba(180,80,80,0.12);border:1px solid var(--rust);}
+  .academy-congrats{text-align:center;padding:32px 16px;}
+  .academy-congrats-glyph{font-size:40px;margin-bottom:8px;}
+  .academy-congrats-title{font-family:'Fraunces',serif;font-weight:600;font-size:28px;color:var(--paper);margin-bottom:8px;}
+  .academy-congrats-copy{color:#c9cdd6;font-size:15px;}
   .academy-quiz-score{font-size:22px;font-weight:700;margin-bottom:6px;}
-  .academy-certificate{background:#fff;color:#222;border:3px solid var(--ac-grad-b);border-radius:12px;padding:50px 30px;text-align:center;max-width:640px;margin:20px auto;}
-  .academy-cert-title{font-family:'Fraunces',serif;font-size:26px;font-weight:700;margin-bottom:20px;}
-  .academy-cert-name{font-size:24px;font-weight:600;border-bottom:2px solid #333;display:inline-block;padding:0 20px 8px;margin-bottom:20px;}
-  .academy-cert-body{font-size:16px;line-height:1.6;margin-bottom:20px;}
-  .academy-cert-date{font-size:14px;color:#555;}
+  .academy-certificate{background:#fdfcf9;color:#222;border:2px solid var(--ac-grad-b);border-radius:4px;padding:8px;max-width:640px;margin:20px auto;}
+  .academy-cert-inner{border:1px solid #c9a960;border-radius:2px;padding:44px 30px 30px;text-align:center;}
+  .academy-cert-seal{font-size:26px;color:#c9a960;margin-bottom:6px;}
+  .academy-cert-kicker{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#8a8a8a;margin-bottom:6px;}
+  .academy-cert-title{font-family:'Fraunces',serif;font-size:26px;font-weight:700;margin-bottom:20px;color:#1a1a1a;}
+  .academy-cert-name{font-family:'Fraunces',serif;font-size:24px;font-weight:600;border-bottom:2px solid #c9a960;display:inline-block;padding:0 22px 8px;margin-bottom:20px;color:#1a1a1a;}
+  .academy-cert-body{font-size:15px;line-height:1.6;margin-bottom:6px;color:#444;}
+  .academy-cert-course{font-family:'Fraunces',serif;font-size:18px;font-weight:600;margin-bottom:18px;color:#1a1a1a;}
+  .academy-cert-date{font-size:13px;color:#777;margin-bottom:16px;}
+  .academy-cert-footer{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#999;border-top:1px solid #e5e0d5;padding-top:12px;margin-top:6px;}
 </style>
 </head>
 <body>
@@ -2533,7 +2542,11 @@ function renderAcademyHome(root){
       const cert = state.academyCertificates[c.id];
       let actionHtml;
       if(cert){
-        actionHtml = `<button class="btn btn-gold btn-small" onclick="state.academySelectedCourseId='${c.id}';state.academyView='certificate';render();">View Certificate</button>`;
+        actionHtml = `
+          <div class="row" style="gap:8px;">
+            <button class="btn btn-ghost btn-small" onclick="openAcademyCourse('${c.id}')">View Course</button>
+            <button class="btn btn-gold btn-small" onclick="state.academySelectedCourseId='${c.id}';state.academyView='certificate';render();">View Certificate</button>
+          </div>`;
       } else if(enrollment){
         actionHtml = `<button class="btn btn-gold btn-small" onclick="openAcademyCourse('${c.id}')">Continue</button>`;
       } else {
@@ -2669,18 +2682,31 @@ function renderAcademyLesson(root){
         <div class="academy-lesson-content">${chapterContent}</div>
         <button class="btn btn-gold" onclick="submitAcademyChapterRead()" style="margin-top:24px;">Mark as Read — Continue</button>`;
     }
-  } else if(lesson.type === 'summary_quiz'){
+  } else if(lesson.type === 'summary_quiz' || lesson.type === 'section_quiz'){
     if(state.academyQuizResult){
       const r = state.academyQuizResult;
-      bodyHtml = `
-        <div class="academy-quiz-result ${r.passed ? 'passed' : 'failed'}">
-          <div class="academy-quiz-score">${r.correct} / ${r.total} (${r.percent}%)</div>
-          <div>${r.passed ? 'You passed! The next lesson is now unlocked.' : `You need ${lesson.pass_percent}% to pass — review the chapter and try again.`}</div>
-        </div>
-        <div style="margin-top:16px;display:flex;gap:8px;">
-          ${r.passed ? `<button class="btn btn-gold" onclick="backToAcademyCourse()">Back to Course</button>`
-                     : `<button class="btn btn-ghost" onclick="openAcademyLesson('${lesson.id}')">Retry Quiz</button>`}
-        </div>`;
+      if(r.passed && r.course_completed){
+        bodyHtml = `
+          <div class="academy-quiz-result passed academy-congrats">
+            <div class="academy-congrats-glyph">🎉</div>
+            <div class="academy-congrats-title">Congratulations!</div>
+            <div class="academy-congrats-copy">You've completed the course. Your certificate is ready.</div>
+          </div>
+          <div style="margin-top:16px;display:flex;gap:8px;">
+            <button class="btn btn-gold" onclick="state.academyView='certificate';render();">View Your Certificate</button>
+            <button class="btn btn-ghost" onclick="backToAcademyCourse()">Back to Course</button>
+          </div>`;
+      } else {
+        bodyHtml = `
+          <div class="academy-quiz-result ${r.passed ? 'passed' : 'failed'}">
+            <div class="academy-quiz-score">${r.correct} / ${r.total} (${r.percent}%)</div>
+            <div>${r.passed ? 'You passed! The next lesson is now unlocked.' : `You need ${lesson.pass_percent}% to pass — review the chapter and try again.`}</div>
+          </div>
+          <div style="margin-top:16px;display:flex;gap:8px;">
+            ${r.passed ? `<button class="btn btn-gold" onclick="backToAcademyCourse()">Back to Course</button>`
+                       : `<button class="btn btn-ghost" onclick="openAcademyLesson('${lesson.id}')">Retry Quiz</button>`}
+          </div>`;
+      }
     } else {
       const questionsHtml = state.academyQuizQuestions.map((q, i) => {
         const qTr = academyTr('quiz_question', q.id);
@@ -2746,16 +2772,67 @@ function renderAcademyCertificate(root){
     root.innerHTML = `<div class="academy-body"><p class="hint">Certificate not available — complete the course first.</p></div>`;
     return;
   }
+
+  if(!cert.recipient_name){
+    // If any other certificate already has a name set, reuse it silently
+    // rather than asking again — the one-time entry is per-account, not
+    // per-course.
+    const existingName = Object.values(state.academyCertificates).map(c => c.recipient_name).find(Boolean);
+    if(existingName){
+      saveCertificateRecipientName(cert.id, existingName);
+      root.innerHTML = `<div class="academy-body"><p class="hint">Loading your certificate…</p></div>`;
+      return;
+    }
+    root.innerHTML = `
+      <div class="academy-body">
+        <a class="academy-back" onclick="goToAcademyHome();return false;" href="#">← Academy Home</a>
+        <div class="academy-certificate">
+          <div class="academy-cert-inner">
+            <div class="academy-cert-kicker">One More Step</div>
+            <div class="academy-cert-title" style="margin-bottom:14px;">Name Your Certificate</div>
+            <p style="color:#555;font-size:14px;line-height:1.6;margin-bottom:18px;">Enter your name exactly as you'd like it to appear. This can only be set once — if it's ever wrong, you'll need to message the editor to have it corrected.</p>
+            <input type="text" id="academyCertNameInput" placeholder="Your full name" value="${escapeHtml(displayName() || '')}" style="width:100%;max-width:320px;padding:10px;border:1px solid #ccc;border-radius:6px;font-size:15px;text-align:center;">
+            <div style="margin-top:16px;">
+              <button class="btn btn-gold" onclick="saveCertificateRecipientName('${cert.id}', document.getElementById('academyCertNameInput').value)">Generate Certificate</button>
+            </div>
+            ${state.err ? `<div class="hint" style="color:var(--rust);margin-top:10px;">${escapeHtml(state.err)}</div>` : ''}
+          </div>
+        </div>
+      </div>`;
+    return;
+  }
+
   root.innerHTML = `
     <div class="academy-body">
       <a class="academy-back" onclick="goToAcademyHome();return false;" href="#">← Academy Home</a>
       <div class="academy-certificate">
-        <div class="academy-cert-title">Certificate of Completion</div>
-        <div class="academy-cert-name">${escapeHtml(displayName() || 'Learner')}</div>
-        <div class="academy-cert-body">has successfully completed<br><strong>${escapeHtml(course.title)}</strong></div>
-        <div class="academy-cert-date">${fmtDate(cert.issued_at)}</div>
+        <div class="academy-cert-inner">
+          <div class="academy-cert-seal">✦</div>
+          <div class="academy-cert-kicker">The Flint Academy</div>
+          <div class="academy-cert-title">Certificate of Completion</div>
+          <div class="academy-cert-name">${escapeHtml(cert.recipient_name)}</div>
+          <div class="academy-cert-body">has successfully completed the course</div>
+          <div class="academy-cert-course">${escapeHtml(course.title)}</div>
+          <div class="academy-cert-date">${fmtDate(cert.issued_at)}</div>
+          <div class="academy-cert-footer">Acts 2:38 · Apostolic Oneness</div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:14px;">
+        <a href="javascript:void(0)" class="toggle-link" onclick="setView('messages')">Name incorrect? Message the editor</a>
       </div>
     </div>`;
+}
+
+async function saveCertificateRecipientName(certId, name){
+  const trimmed = (name || '').trim();
+  if(!trimmed){ state.err = "Please enter a name."; render(); return; }
+  const { error } = await sb.from('academy_certificates').update({ recipient_name: trimmed }).eq('id', certId);
+  if(error){ state.err = error.message; render(); return; }
+  state.err = "";
+  const { data: certs } = await sb.from('academy_certificates').select('*').eq('user_id', state.session.user.id);
+  state.academyCertificates = {};
+  (certs || []).forEach(c => { state.academyCertificates[c.course_id] = c; });
+  render();
 }
 
 function stampHtml(status){
@@ -2809,7 +2886,10 @@ function renderAcademyDeskCatalog(root){
           ${escapeHtml(c.title)}
           <span class="stamp-mini ${c.status === 'published' ? 'approved' : 'pending'}">${c.status}</span>
         </div>
-        <button class="btn btn-ghost btn-small" onclick="openAcademyDeskCourse('${c.id}')">Edit</button>
+        <div class="row" style="gap:6px;">
+          <button class="btn btn-ghost btn-small" onclick="openAcademyDeskProgress('${c.id}')">Progress</button>
+          <button class="btn btn-ghost btn-small" onclick="openAcademyDeskCourse('${c.id}')">Edit</button>
+        </div>
       </div>`).join('');
     return `
       <div class="list-manager-card">
