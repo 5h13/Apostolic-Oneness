@@ -421,6 +421,7 @@ let state = {
   academySections: [],
   academySectionOpen: {},
   academyCourseIntroOpen: {},
+  academyLiveLinkedArticle: null,
   academyProgress: {},
   academyEnrollments: {},
   academyCertificates: {},
@@ -2210,6 +2211,7 @@ async function openAcademyLesson(lessonId){
   state.academyQuizResult = null;
   state.academyEssayDraft = "";
   state.academyEssayResult = null;
+  state.academyLiveLinkedArticle = null;
   state.err = "";
   render();
 
@@ -2218,6 +2220,15 @@ async function openAcademyLesson(lessonId){
     const { data } = await sb.from('academy_quiz_questions').select('*').eq('lesson_id', lessonId).order('sort_order');
     state.academyQuizQuestions = data || [];
     render();
+  }
+  if(lesson && lesson.type === 'chapter' && lesson.link_mode === 'live' && lesson.source_article_id){
+    state.academyLiveLinkedArticle = { lessonId, article: undefined };
+    render();
+    const { data: article } = await sb.from('articles').select('*').eq('id', lesson.source_article_id).eq('status', 'approved').maybeSingle();
+    if(state.academyLiveLinkedArticle && state.academyLiveLinkedArticle.lessonId === lessonId){
+      state.academyLiveLinkedArticle.article = article || null;
+      render();
+    }
   }
   await loadAcademyTranslationsForView();
   render();
@@ -2502,11 +2513,26 @@ function renderAcademyLesson(root){
   let bodyHtml = '';
 
   if(lesson.type === 'chapter'){
-    const chapterContent = (lessonTr && lessonTr.content) || lesson.html_content;
-    bodyHtml = `
-      ${academyTranslationNoteHtml('lesson', lesson.id)}
-      <div class="academy-lesson-content">${chapterContent}</div>
-      <button class="btn btn-gold" onclick="submitAcademyChapterRead()" style="margin-top:24px;">Mark as Read — Continue</button>`;
+    if(lesson.link_mode === 'live'){
+      const linked = state.academyLiveLinkedArticle;
+      if(!linked || linked.lessonId !== lesson.id || linked.article === undefined){
+        bodyHtml = `<p class="hint" style="text-align:left;">Loading linked article…</p>`;
+      } else if(linked.article === null){
+        bodyHtml = `
+          <div class="hint" style="text-align:left;color:var(--rust);">This chapter's source article is no longer available. Please let the course editor know.</div>`;
+      } else {
+        bodyHtml = `
+          <div class="hint" style="text-align:left;margin-bottom:10px;">Mirrors the article: <strong>${escapeHtml(linked.article.title)}</strong></div>
+          <div class="body-text">${escapeHtml(linked.article.body)}</div>
+          <button class="btn btn-gold" onclick="submitAcademyChapterRead()" style="margin-top:24px;">Mark as Read — Continue</button>`;
+      }
+    } else {
+      const chapterContent = (lessonTr && lessonTr.content) || lesson.html_content;
+      bodyHtml = `
+        ${academyTranslationNoteHtml('lesson', lesson.id)}
+        <div class="academy-lesson-content">${chapterContent}</div>
+        <button class="btn btn-gold" onclick="submitAcademyChapterRead()" style="margin-top:24px;">Mark as Read — Continue</button>`;
+    }
   } else if(lesson.type === 'summary_quiz'){
     if(state.academyQuizResult){
       const r = state.academyQuizResult;
@@ -2604,12 +2630,35 @@ function stampHtml(status){
 // ===== Academy Desk (editor content management) =====
 
 function renderAcademyDesk(main){
+  // Preserve scroll position and the focused input's cursor across
+  // re-renders — same fix as renderUsersDashboard. Without this, any
+  // live-as-you-type search (e.g. the article importer) would rebuild
+  // the whole panel on every keystroke, dropping focus and resetting
+  // scroll to the top.
+  const prevRoot = document.getElementById('academyDeskRoot');
+  const prevScrollTop = prevRoot ? prevRoot.scrollTop : 0;
+  const activeEl = document.activeElement;
+  const activeId = activeEl && activeEl.id;
+  const activeSelStart = activeEl && typeof activeEl.selectionStart === 'number' ? activeEl.selectionStart : null;
+  const activeSelEnd = activeEl && typeof activeEl.selectionEnd === 'number' ? activeEl.selectionEnd : null;
+
   main.innerHTML = `<div class="scroll-panel" id="academyDeskRoot"></div>`;
   const root = document.getElementById('academyDeskRoot');
   if(state.academyDeskScreen === 'course' && state.academyDeskCourseId){
     renderAcademyDeskCourseEditor(root);
   } else {
     renderAcademyDeskCatalog(root);
+  }
+
+  root.scrollTop = prevScrollTop;
+  if(activeId){
+    const newActiveEl = document.getElementById(activeId);
+    if(newActiveEl){
+      newActiveEl.focus();
+      if(activeSelStart !== null && newActiveEl.setSelectionRange){
+        newActiveEl.setSelectionRange(activeSelStart, activeSelEnd);
+      }
+    }
   }
 }
 
@@ -2802,9 +2851,13 @@ function academyLessonEditorHtml(){
   let typeFields = '';
 
   if(ed.type === 'chapter'){
+    const importHtml = academyChapterImportHtml(ed);
+    const contentFieldHtml = ed.linkMode === 'live' ? '' : `
+      <textarea id="academyDeskLessonHtmlContent" placeholder="Chapter content (HTML)" style="width:100%;min-height:200px;margin-bottom:12px;">${escapeHtml(ed.html_content)}</textarea>`;
     typeFields = `
       <input type="number" id="academyDeskLessonChapterNumber" value="${ed.chapter_number != null ? ed.chapter_number : ''}" placeholder="Chapter number, e.g. 1" style="width:200px;margin-bottom:8px;">
-      <textarea id="academyDeskLessonHtmlContent" placeholder="Chapter content (HTML)" style="width:100%;min-height:200px;margin-bottom:12px;">${escapeHtml(ed.html_content)}</textarea>
+      ${importHtml}
+      ${contentFieldHtml}
       <div class="list-manager-card">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
           <input type="checkbox" id="academyDeskChapterQuizToggle" ${ed.quizEnabled ? 'checked' : ''}>
@@ -2846,6 +2899,39 @@ function academyLessonEditorHtml(){
         <button class="btn btn-gold btn-small" onclick="saveAcademyLesson()">Save Lesson</button>
         <button class="btn btn-ghost btn-small" onclick="cancelAcademyLessonEditor()">Cancel</button>
       </div>
+    </div>`;
+}
+
+function academyChapterImportHtml(ed){
+  if(ed.linkMode === 'live' && ed.sourceArticleId){
+    const article = state.articles.find(a => a.id === ed.sourceArticleId);
+    return `
+      <div class="list-manager-card" style="margin-bottom:12px;">
+        <div class="list-manager-title" style="margin-bottom:6px;">Live-linked Article</div>
+        <div class="hint" style="text-align:left;">This chapter always mirrors: <strong>${escapeHtml(article ? article.title : '(article not found)')}</strong>. If it's ever unpublished or deleted, students will see a "source unavailable" message instead of content.</div>
+        <button class="btn btn-ghost btn-small" onclick="unlinkAcademyChapterImport()" style="margin-top:8px;">Unlink — switch back to manual content</button>
+      </div>`;
+  }
+
+  const term = (ed.importSearchTerm || '').trim().toLowerCase();
+  const matches = term
+    ? state.articles.filter(a => a.status === 'approved' && (a.title || '').toLowerCase().includes(term)).slice(0, 6)
+    : [];
+  const resultsHtml = matches.map(a => `
+    <div class="list-manager-search-result">
+      <div class="list-manager-item-title">${escapeHtml(a.title)}</div>
+      <div class="row" style="gap:6px;">
+        <button class="btn btn-ghost btn-small" onclick="importAcademyChapterArticle('${a.id}','copy')">Copy In</button>
+        <button class="btn btn-ghost btn-small" onclick="importAcademyChapterArticle('${a.id}','live')">Live-Link</button>
+      </div>
+    </div>`).join('');
+
+  return `
+    <div class="list-manager-card" style="margin-bottom:12px;">
+      <div class="list-manager-title" style="margin-bottom:6px;">Import from Article</div>
+      <input type="text" id="academyDeskImportSearch" value="${escapeHtml(ed.importSearchTerm || '')}" placeholder="Search published articles..." style="width:100%;">
+      ${term ? (matches.length ? `<div style="margin-top:8px;">${resultsHtml}</div>` : `<div class="hint" style="text-align:left;margin-top:8px;">No matches.</div>`) : ''}
+      ${ed.sourceArticleId && ed.linkMode === 'copy' ? `<div class="hint" style="text-align:left;margin-top:8px;">Originally imported from an article — the content below is now independent and safe to edit.</div>` : ''}
     </div>`;
 }
 
@@ -2902,6 +2988,10 @@ function wireAcademyLessonEditorInputs(){
   if(ed.type === 'chapter'){
     const chNum = document.getElementById('academyDeskLessonChapterNumber');
     if(chNum) chNum.oninput = e => { ed.chapter_number = e.target.value ? parseInt(e.target.value, 10) : null; };
+
+    const importSearch = document.getElementById('academyDeskImportSearch');
+    if(importSearch) importSearch.oninput = e => { ed.importSearchTerm = e.target.value; render(); };
+
     const html = document.getElementById('academyDeskLessonHtmlContent');
     if(html) html.oninput = e => { ed.html_content = e.target.value; };
 
@@ -4233,7 +4323,10 @@ function openNewLessonEditor(sectionId, type){
     chapterQuizPassPercent: 70,
     chapterQuizQuestions: [],
     poolCandidates: [],
-    poolSelected: {}
+    poolSelected: {},
+    linkMode: null,
+    sourceArticleId: null,
+    importSearchTerm: ''
   };
   render();
   if(type === 'section_quiz'){
@@ -4262,7 +4355,10 @@ function openEditLessonEditor(lessonId){
     chapterQuizPassPercent: 70,
     chapterQuizQuestions: [],
     poolCandidates: [],
-    poolSelected: {}
+    poolSelected: {},
+    linkMode: l.link_mode || null,
+    sourceArticleId: l.source_article_id || null,
+    importSearchTerm: ''
   };
   render();
   if(l.type === 'summary_quiz' || l.type === 'section_quiz'){
@@ -4274,6 +4370,30 @@ function openEditLessonEditor(lessonId){
   if(l.type === 'section_quiz'){
     loadAcademyDeskSectionQuizPool(l.section_id).then(render);
   }
+}
+
+function importAcademyChapterArticle(articleId, mode){
+  const ed = state.academyDeskLessonEditor;
+  const article = state.articles.find(a => a.id === articleId);
+  if(!article) return;
+  ed.sourceArticleId = articleId;
+  ed.importSearchTerm = '';
+  if(mode === 'live'){
+    ed.linkMode = 'live';
+    ed.html_content = '';
+  } else {
+    ed.linkMode = 'copy';
+    const paragraphs = (article.body || '').split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+    ed.html_content = paragraphs.map(p => `<p>${escapeHtml(p)}</p>`).join('');
+    if(!ed.title) ed.title = article.title;
+  }
+  render();
+}
+
+function unlinkAcademyChapterImport(){
+  const ed = state.academyDeskLessonEditor;
+  ed.linkMode = null;
+  render();
 }
 
 function cancelAcademyLessonEditor(){
@@ -4429,6 +4549,8 @@ async function saveAcademyLesson(){
   if(ed.type === 'chapter'){
     payload.html_content = ed.html_content;
     payload.chapter_number = ed.chapter_number;
+    payload.link_mode = ed.linkMode;
+    payload.source_article_id = ed.sourceArticleId;
   } else if(ed.type === 'essay'){
     payload.essay_prompt = ed.essay_prompt;
     payload.essay_min_words = ed.essay_min_words;
