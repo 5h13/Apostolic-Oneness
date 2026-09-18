@@ -450,6 +450,9 @@ let state = {
   academyDeskSectionIntroDraft: "",
   academyDeskCourseDraft: null,
   academyDeskLessonEditor: null,
+  academyDeskRoster: [],
+  academyDeskRosterLoaded: false,
+  academyDeskStuckThresholdDays: 7,
   lists: [],
   listsLoaded: false,
   listManagerOpenId: null,
@@ -2779,6 +2782,8 @@ function renderAcademyDesk(main){
   const root = document.getElementById('academyDeskRoot');
   if(state.academyDeskScreen === 'course' && state.academyDeskCourseId){
     renderAcademyDeskCourseEditor(root);
+  } else if(state.academyDeskScreen === 'progress' && state.academyDeskCourseId){
+    renderAcademyDeskProgress(root);
   } else {
     renderAcademyDeskCatalog(root);
   }
@@ -2866,6 +2871,7 @@ function renderAcademyDeskCourseEditor(root){
         <div class="list-manager-title">${escapeHtml(course.title)} <span class="stamp-mini ${course.status === 'published' ? 'approved' : 'pending'}">${course.status}</span></div>
         <div class="row" style="gap:6px;">
           <button class="btn btn-ghost btn-small" onclick="startEditAcademyCourseFields()">Edit Course Info</button>
+          <button class="btn btn-ghost btn-small" onclick="openAcademyDeskProgress('${course.id}')">Student Progress</button>
           ${locked ? '' : `<button class="btn btn-rust btn-small" onclick="deleteAcademyCourse('${course.id}')">Delete Course</button>`}
         </div>
       </div>
@@ -2977,6 +2983,52 @@ function renderAcademyDeskCourseEditor(root){
   }
 
   wireAcademyLessonEditorInputs();
+}
+
+function academyRosterRowHtml(r){
+  const days = daysSince(r.lastActivity);
+  const stuck = !r.completed && days !== null && days >= state.academyDeskStuckThresholdDays;
+  const pct = r.totalLessons ? Math.round((r.completedCount / r.totalLessons) * 100) : 0;
+  const activityLabel = r.lastActivity === null ? 'No activity recorded yet'
+    : days === 0 ? 'Active today'
+    : `${days} day${days === 1 ? '' : 's'} since last progress`;
+  return `
+    <div class="list-manager-item" style="align-items:flex-start;">
+      <div style="flex:1;">
+        <div class="list-manager-item-title">
+          ${escapeHtml(r.name)}
+          ${stuck ? `<span class="stamp-mini pending" style="margin-left:6px;">Stuck</span>` : ''}
+          ${r.completed ? `<span class="stamp-mini approved" style="margin-left:6px;">Completed</span>` : ''}
+        </div>
+        <div class="hint" style="text-align:left;margin:2px 0;">${escapeHtml(r.email)}</div>
+        <div class="hint" style="text-align:left;margin:2px 0;">${pct}% complete (${r.completedCount}/${r.totalLessons}) · Currently: ${escapeHtml(r.currentLessonTitle)}</div>
+        <div class="hint" style="text-align:left;margin:2px 0;">${activityLabel}</div>
+      </div>
+      <button class="btn btn-gold btn-small" onclick="messageUser('${r.userId}')">Message</button>
+    </div>`;
+}
+
+function renderAcademyDeskProgress(root){
+  const course = state.academyDeskCourses.find(c => c.id === state.academyDeskCourseId);
+  const roster = state.academyDeskRoster;
+  const stuckCount = roster.filter(r => !r.completed && daysSince(r.lastActivity) !== null && daysSince(r.lastActivity) >= state.academyDeskStuckThresholdDays).length;
+
+  root.innerHTML = `
+    <div class="narrow" style="padding:28px 24px;">
+      <a href="javascript:void(0)" onclick="backToAcademyDeskCourseFromProgress()">← ${course ? escapeHtml(course.title) : 'Course'}</a>
+      <p class="welcome-heading">Student Progress</p>
+      ${state.err ? `<div class="hint" style="color:var(--rust);text-align:left;margin-bottom:14px;">${escapeHtml(state.err)}</div>` : ''}
+      <div class="row" style="gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+        <span class="hint" style="margin:0;">Flag as stuck after</span>
+        <input type="number" id="academyDeskStuckThresholdInput" value="${state.academyDeskStuckThresholdDays}" style="width:80px;">
+        <span class="hint" style="margin:0;">days with no progress</span>
+        ${stuckCount ? `<span class="stamp-mini pending" style="margin-left:8px;">${stuckCount} stuck</span>` : ''}
+      </div>
+      ${roster.length ? roster.map(academyRosterRowHtml).join('') : `<div class="hint" style="text-align:left;">No one is enrolled in this course yet.</div>`}
+    </div>`;
+
+  const thresholdInput = document.getElementById('academyDeskStuckThresholdInput');
+  if(thresholdInput) thresholdInput.oninput = e => { state.academyDeskStuckThresholdDays = parseInt(e.target.value, 10) || 0; render(); };
 }
 
 function academyLessonEditorHtml(){
@@ -4245,6 +4297,90 @@ function backToAcademyDeskCatalog(){
   state.academyDeskCourseId = null;
   state.err = "";
   render();
+}
+
+// --- Student Progress ---
+
+function openAcademyDeskProgress(courseId){
+  state.academyDeskScreen = 'progress';
+  state.academyDeskCourseId = courseId;
+  state.err = "";
+  render();
+  loadAcademyDeskRoster(courseId).then(render);
+}
+
+function backToAcademyDeskCourseFromProgress(){
+  state.academyDeskScreen = 'course';
+  render();
+}
+
+function daysSince(dateStr){
+  if(!dateStr) return null;
+  return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+}
+
+async function loadAcademyDeskRoster(courseId){
+  const { data: enrollments } = await sb.from('academy_enrollments').select('*').eq('course_id', courseId);
+  const enr = enrollments || [];
+  const userIds = enr.map(e => e.user_id);
+
+  const { data: lessons } = await sb.from('academy_lessons').select('id, title').eq('course_id', courseId);
+  const lessonList = lessons || [];
+  const lessonIds = lessonList.map(l => l.id);
+  const lessonTitleMap = {};
+  lessonList.forEach(l => { lessonTitleMap[l.id] = l.title; });
+  const totalLessons = lessonList.length;
+
+  let profilesMap = {};
+  if(userIds.length){
+    const { data: profiles } = await sb.from('profiles').select('id, display_name, email').in('id', userIds);
+    (profiles || []).forEach(p => { profilesMap[p.id] = p; });
+  }
+
+  let progressByUser = {};
+  if(userIds.length && lessonIds.length){
+    const { data: progress } = await sb.from('academy_lesson_progress').select('*').in('user_id', userIds).in('lesson_id', lessonIds);
+    (progress || []).forEach(p => {
+      if(!progressByUser[p.user_id]) progressByUser[p.user_id] = [];
+      progressByUser[p.user_id].push(p);
+    });
+  }
+
+  let essayByUser = {};
+  if(userIds.length && lessonIds.length){
+    const { data: essays } = await sb.from('academy_essay_submissions').select('*').in('user_id', userIds).in('lesson_id', lessonIds);
+    (essays || []).forEach(s => {
+      if(!essayByUser[s.user_id]) essayByUser[s.user_id] = [];
+      essayByUser[s.user_id].push(s);
+    });
+  }
+
+  state.academyDeskRoster = enr.map(e => {
+    const profile = profilesMap[e.user_id] || {};
+    const myProgress = progressByUser[e.user_id] || [];
+    const myEssays = essayByUser[e.user_id] || [];
+    const completedCount = myProgress.filter(p => p.status === 'completed').length;
+
+    const timestamps = [e.created_at];
+    myProgress.forEach(p => { timestamps.push(p.updated_at); timestamps.push(p.completed_at); });
+    myEssays.forEach(s => { timestamps.push(s.updated_at); timestamps.push(s.created_at); });
+    const lastActivity = timestamps.filter(Boolean).sort().slice(-1)[0] || null;
+
+    const currentLessonTitle = e.completed ? 'Completed' : (e.current_lesson_id ? (lessonTitleMap[e.current_lesson_id] || '—') : '—');
+
+    return {
+      userId: e.user_id,
+      name: profile.display_name || profile.email || 'Unknown',
+      email: profile.email || '',
+      completed: !!e.completed,
+      completedCount,
+      totalLessons,
+      currentLessonTitle,
+      lastActivity
+    };
+  }).sort((a, b) => new Date(b.lastActivity || 0) - new Date(a.lastActivity || 0));
+
+  state.academyDeskRosterLoaded = true;
 }
 
 // --- Subjects ---
