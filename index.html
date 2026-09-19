@@ -317,8 +317,8 @@
   .academy-cert-date{font-size:13px;color:#777;margin-bottom:16px;}
   .academy-cert-footer{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#999;border-top:1px solid #e5e0d5;padding-top:12px;margin-top:6px;}
   .academy-cert-image-wrap{position:relative;width:100%;max-width:900px;margin:20px auto;aspect-ratio:3/2;background-size:cover;background-position:center;border-radius:4px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.3);}
-  .academy-cert-image-name{position:absolute;top:29.5%;left:50%;transform:translateX(-50%);width:66%;text-align:center;font-family:'Fraunces',serif;font-style:italic;font-weight:600;font-size:clamp(14px,3.2vw,28px);color:#3a2a12;}
-  .academy-cert-image-date{position:absolute;top:82.5%;left:4%;width:30%;text-align:center;font-family:'Fraunces',serif;font-style:italic;font-size:clamp(10px,1.6vw,15px);color:#3a2a12;}
+  .academy-cert-image-name{position:absolute;top:25%;left:50%;transform:translateX(-50%);width:66%;text-align:center;font-family:'Fraunces',serif;font-style:italic;font-weight:600;font-size:clamp(13px,2.8vw,24px);color:#3a2a12;line-height:1.1;}
+  .academy-cert-image-date{position:absolute;top:82.5%;left:12%;width:26%;text-align:center;font-family:'Fraunces',serif;font-style:italic;font-size:clamp(10px,1.6vw,15px);color:#3a2a12;}
 </style>
 </head>
 <body>
@@ -578,6 +578,9 @@ function initials(name){
 }
 function fmtDate(iso){
   return new Date(iso).toLocaleDateString(undefined, {year:'numeric', month:'short', day:'numeric'});
+}
+function fmtDateLong(iso){
+  return new Date(iso).toLocaleDateString(undefined, {year:'numeric', month:'long', day:'numeric'});
 }
 function wordCount(text){
   const trimmed = (text || '').trim();
@@ -2801,7 +2804,7 @@ function renderAcademyCertificate(root){
             <div class="academy-cert-kicker">One More Step</div>
             <div class="academy-cert-title" style="margin-bottom:14px;">Name Your Certificate</div>
             <p style="color:#555;font-size:14px;line-height:1.6;margin-bottom:18px;">Enter your name exactly as you'd like it to appear. This can only be set once — if it's ever wrong, you'll need to message the editor to have it corrected.</p>
-            <input type="text" id="academyCertNameInput" placeholder="Your full name" value="${escapeHtml(displayName() || '')}" style="width:100%;max-width:320px;padding:10px;border:1px solid #ccc;border-radius:6px;font-size:15px;text-align:center;">
+            <input type="text" id="academyCertNameInput" placeholder="Your full name" style="width:100%;max-width:320px;padding:10px;border:1px solid #ccc;border-radius:6px;font-size:15px;text-align:center;">
             <div style="margin-top:16px;">
               <button class="btn btn-gold" onclick="saveCertificateRecipientName('${cert.id}', document.getElementById('academyCertNameInput').value)">Generate Certificate</button>
             </div>
@@ -2815,7 +2818,7 @@ function renderAcademyCertificate(root){
   const certBody = course.certificate_bg_url ? `
       <div class="academy-cert-image-wrap" style="background-image:url('${escapeHtml(course.certificate_bg_url)}');">
         <div class="academy-cert-image-name">${escapeHtml(cert.recipient_name)}</div>
-        <div class="academy-cert-image-date">${fmtDate(cert.issued_at)}</div>
+        <div class="academy-cert-image-date">${fmtDateLong(cert.issued_at)}</div>
       </div>` : `
       <div class="academy-certificate">
         <div class="academy-cert-inner">
@@ -2825,7 +2828,7 @@ function renderAcademyCertificate(root){
           <div class="academy-cert-name">${escapeHtml(cert.recipient_name)}</div>
           <div class="academy-cert-body">has successfully completed the course</div>
           <div class="academy-cert-course">${escapeHtml(course.title)}</div>
-          <div class="academy-cert-date">${fmtDate(cert.issued_at)}</div>
+          <div class="academy-cert-date">${fmtDateLong(cert.issued_at)}</div>
           <div class="academy-cert-footer">Acts 2:38 · Apostolic Oneness</div>
         </div>
       </div>`;
