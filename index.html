@@ -319,6 +319,17 @@
   .academy-cert-image-wrap{position:relative;width:100%;max-width:900px;margin:20px auto;aspect-ratio:3/2;background-size:cover;background-position:center;border-radius:4px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.3);}
   .academy-cert-image-name{position:absolute;top:25%;left:50%;transform:translateX(-50%);width:66%;text-align:center;font-family:'Fraunces',serif;font-style:italic;font-weight:600;font-size:clamp(13px,2.8vw,24px);color:#3a2a12;line-height:1.1;}
   .academy-cert-image-date{position:absolute;top:82.5%;left:12%;width:26%;text-align:center;font-family:'Fraunces',serif;font-style:italic;font-size:clamp(10px,1.6vw,15px);color:#3a2a12;}
+
+  @media print {
+    body *{visibility:hidden;}
+    .academy-certificate, .academy-certificate *,
+    .academy-cert-image-wrap, .academy-cert-image-wrap *{visibility:visible;}
+    .academy-certificate, .academy-cert-image-wrap{
+      position:absolute;top:0;left:0;width:100%;max-width:none;margin:0;box-shadow:none;
+    }
+    .no-print{display:none !important;}
+    @page{margin:0.4in;}
+  }
 </style>
 </head>
 <body>
@@ -2835,9 +2846,12 @@ function renderAcademyCertificate(root){
 
   root.innerHTML = `
     <div class="academy-body">
-      <a class="academy-back" onclick="goToAcademyHome();return false;" href="#">← Academy Home</a>
+      <a class="academy-back no-print" onclick="goToAcademyHome();return false;" href="#">← Academy Home</a>
       ${certBody}
-      <div style="text-align:center;margin-top:14px;">
+      <div class="no-print" style="text-align:center;margin-top:18px;">
+        <button class="btn btn-gold" onclick="window.print()">Print / Save as PDF</button>
+      </div>
+      <div class="no-print" style="text-align:center;margin-top:14px;">
         <a href="javascript:void(0)" class="toggle-link" onclick="setView('messages')">Name incorrect? Message the editor</a>
       </div>
     </div>`;
