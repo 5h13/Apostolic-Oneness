@@ -402,6 +402,7 @@ let state = {
   submitSubcategoryId: "",
   deskGroupFilter: null,
   reviewGroupFilter: null,
+  groupCollapsed: {},
   reviewSubView: 'articles',
   academyEssaySubmissions: [],
   academyEssaySubmissionsLoaded: false,
@@ -1468,6 +1469,12 @@ function selectThread(contributorId){
 function messageUser(contributorId){
   state.view = 'messages';
   loadThreads().then(() => selectThread(contributorId));
+}
+
+function messageStudentAboutProgress(userId, studentName, lessonTitle){
+  const firstName = (studentName || '').split(' ')[0] || 'there';
+  state.messageDraft = `Hi ${firstName}, just checking in — noticed you're on ${lessonTitle} in the course. Let me know if you have any questions!`;
+  messageUser(userId);
 }
 
 function clearThreadSelection(){
@@ -3084,7 +3091,7 @@ function academyRosterRowHtml(r){
         <div class="hint" style="text-align:left;margin:2px 0;">${pct}% complete (${r.completedCount}/${r.totalLessons}) · Currently: ${escapeHtml(r.currentLessonTitle)}</div>
         <div class="hint" style="text-align:left;margin:2px 0;">${activityLabel}</div>
       </div>
-      <button class="btn btn-gold btn-small" onclick="messageUser('${r.userId}')">Message</button>
+      <button class="btn btn-gold btn-small" onclick="messageStudentAboutProgress('${r.userId}', '${escapeHtml(r.name).replace(/'/g, "\\'")}', '${escapeHtml(r.currentLessonTitle).replace(/'/g, "\\'")}')">Message</button>
     </div>`;
 }
 
@@ -3741,18 +3748,16 @@ function renderSplit(main, items, opts){
       groups.get(key).push(a);
     });
     const order = opts.groupOrder || Array.from(groups.keys());
-    const activeGroup = opts.activeGroup || null;
+    const collapseScope = opts.groupCollapseScope || 'default';
     listBody = order
       .filter(k => groups.has(k) && groups.get(k).length)
       .map(k => {
         const groupItems = groups.get(k);
         const label = (opts.groupLabels && opts.groupLabels[k]) || k;
-        const isActive = activeGroup === k;
-        const showRows = !activeGroup || isActive;
-        const clickAttr = opts.onGroupClick ? ` onclick="${opts.onGroupClick(k)}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${opts.onGroupClick(k)};}" role="button" tabindex="0"` : '';
-        const headerClass = `list-group-header${opts.onGroupClick ? ' list-group-header-clickable' : ''}${isActive ? ' active' : ''}`;
-        return `<div class="${headerClass}"${clickAttr}>${escapeHtml(label)} (${groupItems.length})</div>` +
-          (showRows ? groupItems.map(a => opts.rowHtml(a, a.id === state.selectedId)).join('') : '');
+        const collapseKey = `${collapseScope}:${k}`;
+        const isOpen = state.groupCollapsed[collapseKey] === undefined ? true : !state.groupCollapsed[collapseKey];
+        return `<div class="list-group-header list-group-header-clickable" onclick="toggleGroupCollapse('${collapseKey}')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleGroupCollapse('${collapseKey}');}">${isOpen ? '▾' : '▸'} ${escapeHtml(label)} (${groupItems.length})</div>` +
+          (isOpen ? groupItems.map(a => opts.rowHtml(a, a.id === state.selectedId)).join('') : '');
       }).join('');
     if(!listBody){
       listBody = `<div class="empty"><div class="glyph">†</div><p>${opts.emptyTitle}</p>${opts.emptySub ? `<p>${opts.emptySub}</p>` : ''}</div>`;
@@ -3967,6 +3972,10 @@ function deskDetailHtml(a){
       ${categoryTagsHtml(a)}
       ${a.review_note ? `<div class="review-note-box"><div class="review-note-label">Note from the review${a.status === 'rejected' ? '' : ' — thanks!'}</div><div>${escapeHtml(a.review_note)}</div></div>` : ''}
       <div class="body-text" style="margin-top:18px;">${escapeHtml(a.body)}</div>
+      ${a.status === 'rejected' ? `
+        <div class="article-actions">
+          <button class="btn btn-gold btn-small" onclick="editDraft('${a.id}')">Edit & Resubmit</button>
+        </div>` : ''}
     </article>`;
 }
 
@@ -5187,9 +5196,9 @@ function setView(v){
   }
 }
 
-function toggleGroupFilter(scope, key){
-  const field = scope + 'GroupFilter';
-  state[field] = state[field] === key ? null : key;
+function toggleGroupCollapse(collapseKey){
+  const current = state.groupCollapsed[collapseKey];
+  state.groupCollapsed[collapseKey] = current === undefined ? true : !current;
   render();
 }
 
@@ -5310,7 +5319,9 @@ function renderMain(){
         <div class="panel submit-main">
           ${state.editingArticleId
             ? (editingLive
-                ? `<div class="field-note" style="margin-bottom:14px;">Editing a ${editingArticle.status} article — changes save in place, status stays the same. <a href="#" onclick="newSubmission();return false;" style="color:var(--gold);">Start a new article instead</a></div>`
+                ? (editingArticle.status === 'rejected' && !isStaff()
+                    ? `<div class="field-note" style="margin-bottom:14px;">Editing a declined article — resubmitting will send it back for review. <a href="#" onclick="newSubmission();return false;" style="color:var(--gold);">Start a new article instead</a></div>`
+                    : `<div class="field-note" style="margin-bottom:14px;">Editing a ${editingArticle.status} article — changes save in place, status stays the same. <a href="#" onclick="newSubmission();return false;" style="color:var(--gold);">Start a new article instead</a></div>`)
                 : `<div class="field-note" style="margin-bottom:14px;">Editing a saved draft. <a href="#" onclick="newSubmission();return false;" style="color:var(--gold);">Start a new article instead</a></div>`)
             : ''}
           <div class="field">
@@ -5415,8 +5426,7 @@ function renderMain(){
         groupBy: a => a.readingStatus,
         groupOrder: ['not_started', 'in_progress', 'done'],
         groupLabels: { not_started: 'Not started', in_progress: 'In progress', done: 'Done' },
-        activeGroup: state.deskGroupFilter,
-        onGroupClick: (k) => `toggleGroupFilter('desk','${k}')`,
+        groupCollapseScope: 'deskReading',
         topHtml: subTabsHtml,
         welcomeHtml: `
           <p class="welcome-heading">Reading List</p>
@@ -5438,8 +5448,7 @@ function renderMain(){
       groupBy: a => a.status,
       groupOrder: ['draft', 'pending', 'approved', 'rejected'],
       groupLabels: { draft: 'Drafts', pending: 'Under Review', approved: 'Published', rejected: 'Declined' },
-      activeGroup: state.deskGroupFilter,
-      onGroupClick: (k) => `toggleGroupFilter('desk','${k}')`,
+      groupCollapseScope: 'deskArticles',
       search: true,
       searchScope: 'desk',
       searchPlaceholder: 'Search your articles...',
@@ -5473,8 +5482,7 @@ function renderMain(){
         groupBy: s => s.status,
         groupOrder: ['pending', 'approved', 'rejected'],
         groupLabels: { pending: 'For Review', approved: 'Approved', rejected: 'Declined' },
-        activeGroup: state.reviewGroupFilter,
-        onGroupClick: (k) => `toggleGroupFilter('review','${k}')`,
+        groupCollapseScope: 'reviewEssays',
         topHtml: subTabsHtml,
         welcomeHtml: `
           <p class="welcome-heading">Essay Review</p>
@@ -5486,17 +5494,17 @@ function renderMain(){
 
     const pending = state.articles.filter(a => a.status === 'pending');
     const published = state.articles.filter(a => a.status === 'approved');
-    const reviewBase = [...pending, ...published];
+    const declined = state.articles.filter(a => a.status === 'rejected');
+    const reviewBase = [...pending, ...published, ...declined];
     const reviewItems = applyArticleFilters(reviewBase, 'review');
     renderSplit(main, reviewItems, {
       emptyTitle: "Nothing to review yet.",
       rowHtml: (a, active) => listRowHtml(a, active),
       detailHtml: reviewDetailHtml,
       groupBy: a => a.status,
-      groupOrder: ['pending', 'approved'],
-      groupLabels: { pending: 'For Review', approved: 'Published' },
-      activeGroup: state.reviewGroupFilter,
-      onGroupClick: (k) => `toggleGroupFilter('review','${k}')`,
+      groupOrder: ['pending', 'approved', 'rejected'],
+      groupLabels: { pending: 'For Review', approved: 'Published', rejected: 'Declined' },
+      groupCollapseScope: 'reviewArticles',
       search: true,
       searchScope: 'review',
       searchPlaceholder: 'Search articles to review...',
