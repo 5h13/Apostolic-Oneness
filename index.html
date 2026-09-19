@@ -306,7 +306,7 @@
   .academy-congrats-title{font-family:'Fraunces',serif;font-weight:600;font-size:28px;color:var(--paper);margin-bottom:8px;}
   .academy-congrats-copy{color:#c9cdd6;font-size:15px;}
   .academy-quiz-score{font-size:22px;font-weight:700;margin-bottom:6px;}
-  .academy-certificate{background:#fdfcf9;color:#222;border:2px solid var(--ac-grad-b);border-radius:4px;padding:8px;max-width:640px;margin:20px auto;}
+  .academy-certificate{background:#fdfcf9;color:#222;border:2px solid var(--ac-grad-b);border-radius:4px;padding:8px;max-width:640px;margin:20px auto;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   .academy-cert-inner{border:1px solid #c9a960;border-radius:2px;padding:44px 30px 30px;text-align:center;}
   .academy-cert-seal{font-size:26px;color:#c9a960;margin-bottom:6px;}
   .academy-cert-kicker{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#8a8a8a;margin-bottom:6px;}
@@ -316,7 +316,7 @@
   .academy-cert-course{font-family:'Fraunces',serif;font-size:18px;font-weight:600;margin-bottom:18px;color:#1a1a1a;}
   .academy-cert-date{font-size:13px;color:#777;margin-bottom:16px;}
   .academy-cert-footer{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#999;border-top:1px solid #e5e0d5;padding-top:12px;margin-top:6px;}
-  .academy-cert-image-wrap{position:relative;width:100%;max-width:900px;margin:20px auto;aspect-ratio:3/2;background-size:cover;background-position:center;border-radius:4px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.3);}
+  .academy-cert-image-wrap{position:relative;width:100%;max-width:900px;margin:20px auto;aspect-ratio:3/2;background-size:cover;background-position:center;border-radius:4px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.3);-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   .academy-cert-image-name{position:absolute;top:25%;left:50%;transform:translateX(-50%);width:66%;text-align:center;font-family:'Fraunces',serif;font-style:italic;font-weight:600;font-size:clamp(13px,2.8vw,24px);color:#3a2a12;line-height:1.1;}
   .academy-cert-image-date{position:absolute;top:82.5%;left:12%;width:26%;text-align:center;font-family:'Fraunces',serif;font-style:italic;font-size:clamp(10px,1.6vw,15px);color:#3a2a12;}
 
@@ -328,7 +328,7 @@
       position:absolute;top:0;left:0;width:100%;max-width:none;margin:0;box-shadow:none;
     }
     .no-print{display:none !important;}
-    @page{margin:0.4in;}
+    @page{margin:0.4in;size:landscape;}
   }
 </style>
 </head>
@@ -3120,6 +3120,7 @@ function academyRosterRowHtml(r){
         <div class="hint" style="text-align:left;margin:2px 0;">${escapeHtml(r.email)}</div>
         <div class="hint" style="text-align:left;margin:2px 0;">${pct}% complete (${r.completedCount}/${r.totalLessons}) · Currently: ${escapeHtml(r.currentLessonTitle)}</div>
         <div class="hint" style="text-align:left;margin:2px 0;">${activityLabel}</div>
+        ${r.certificateName ? `<div class="hint" style="text-align:left;margin:6px 0 0;">Certificate name: <strong>${escapeHtml(r.certificateName)}</strong> <a href="javascript:void(0)" class="toggle-link" onclick="resetCertificateName('${r.certificateId}','${state.academyDeskCourseId}')">Reset</a></div>` : ''}
       </div>
       <button class="btn btn-gold btn-small" onclick="messageStudentAboutProgress('${r.userId}', '${escapeHtml(r.name).replace(/'/g, "\\'")}', '${escapeHtml(r.currentLessonTitle).replace(/'/g, "\\'")}')">Message</button>
     </div>`;
@@ -4438,6 +4439,14 @@ function daysSince(dateStr){
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
 }
 
+async function resetCertificateName(certId, courseId){
+  const { error } = await sb.from('academy_certificates').update({ recipient_name: null }).eq('id', certId);
+  if(error){ state.err = error.message; render(); return; }
+  state.err = "";
+  await loadAcademyDeskRoster(courseId);
+  render();
+}
+
 async function loadAcademyDeskRoster(courseId){
   const { data: enrollments } = await sb.from('academy_enrollments').select('*').eq('course_id', courseId);
   const enr = enrollments || [];
@@ -4474,11 +4483,18 @@ async function loadAcademyDeskRoster(courseId){
     });
   }
 
+  let certByUser = {};
+  if(userIds.length){
+    const { data: certs } = await sb.from('academy_certificates').select('*').eq('course_id', courseId).in('user_id', userIds);
+    (certs || []).forEach(c => { certByUser[c.user_id] = c; });
+  }
+
   state.academyDeskRoster = enr.map(e => {
     const profile = profilesMap[e.user_id] || {};
     const myProgress = progressByUser[e.user_id] || [];
     const myEssays = essayByUser[e.user_id] || [];
     const completedCount = myProgress.filter(p => p.status === 'completed').length;
+    const cert = certByUser[e.user_id] || null;
 
     const timestamps = [e.created_at];
     myProgress.forEach(p => { timestamps.push(p.updated_at); timestamps.push(p.completed_at); });
@@ -4495,7 +4511,9 @@ async function loadAcademyDeskRoster(courseId){
       completedCount,
       totalLessons,
       currentLessonTitle,
-      lastActivity
+      lastActivity,
+      certificateId: cert ? cert.id : null,
+      certificateName: cert ? cert.recipient_name : null
     };
   }).sort((a, b) => new Date(b.lastActivity || 0) - new Date(a.lastActivity || 0));
 
