@@ -2589,7 +2589,6 @@ function renderAcademyHome(root){
       if(cert){
         actionHtml = `
           <div class="academy-card-completed">🎉 Course completed!</div>
-          ${c.closing_note ? `<p class="academy-card-closing-note">${escapeHtml(c.closing_note)}</p>` : ''}
           ${c.closing_download_url ? `<a class="btn btn-ghost btn-small" href="${escapeHtml(c.closing_download_url)}" target="_blank" rel="noopener" download style="display:inline-block;margin-bottom:10px;">${escapeHtml(c.closing_download_label || 'Download PDF')}</a>` : ''}
           <div class="row" style="gap:8px;">
             <button class="btn btn-ghost btn-small" onclick="openAcademyCourse('${c.id}')">View Course</button>
