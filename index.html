@@ -279,6 +279,8 @@
   .academy-card{background:var(--ink-800);border:1px solid var(--ink-line);border-radius:10px;padding:18px;}
   .academy-card-title{font-weight:600;margin-bottom:6px;}
   .academy-card-desc{font-size:13px;color:var(--slate);margin-bottom:14px;line-height:1.5;}
+  .academy-card-completed{font-size:13px;color:#8bb26e;margin-bottom:6px;}
+  .academy-card-closing-note{font-size:13px;font-style:italic;color:var(--slate);margin:0 0 12px;line-height:1.5;}
   .academy-section{margin-bottom:22px;}
   .academy-section-title{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ac-grad-b);margin-bottom:8px;}
   .academy-section-title-clickable{cursor:pointer;}
@@ -2586,6 +2588,9 @@ function renderAcademyHome(root){
       let actionHtml;
       if(cert){
         actionHtml = `
+          <div class="academy-card-completed">🎉 Course completed!</div>
+          ${c.closing_note ? `<p class="academy-card-closing-note">${escapeHtml(c.closing_note)}</p>` : ''}
+          ${c.closing_download_url ? `<a class="btn btn-ghost btn-small" href="${escapeHtml(c.closing_download_url)}" target="_blank" rel="noopener" download style="display:inline-block;margin-bottom:10px;">${escapeHtml(c.closing_download_label || 'Download PDF')}</a>` : ''}
           <div class="row" style="gap:8px;">
             <button class="btn btn-ghost btn-small" onclick="openAcademyCourse('${c.id}')">View Course</button>
             <button class="btn btn-gold btn-small" onclick="state.academySelectedCourseId='${c.id}';state.academyView='certificate';render();">View Certificate</button>
