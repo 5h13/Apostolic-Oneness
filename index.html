@@ -450,6 +450,7 @@ let state = {
   academySectionOpen: {},
   academyCourseIntroOpen: {},
   academyLiveLinkedArticle: null,
+  academyChapterCourseCompleted: false,
   academyProgress: {},
   academyEnrollments: {},
   academyCertificates: {},
@@ -2252,6 +2253,7 @@ async function openAcademyLesson(lessonId){
   state.academyEssayDraft = "";
   state.academyEssayResult = null;
   state.academyLiveLinkedArticle = null;
+  state.academyChapterCourseCompleted = false;
   state.err = "";
   render();
 
@@ -2299,8 +2301,15 @@ async function submitAcademyChapterRead(){
   const lessonId = state.academySelectedLessonId;
   const { error } = await sb.rpc('academy_complete_chapter', { p_lesson_id: lessonId });
   if(error){ state.err = error.message; render(); return; }
+  const { data: completionData } = await sb.rpc('academy_check_course_completion', { p_lesson_id: lessonId });
+  await loadAcademyCatalog();
   await loadAcademyCourseDetail(state.academySelectedCourseId);
-  backToAcademyCourse();
+  if(completionData && completionData.course_completed){
+    state.academyChapterCourseCompleted = true;
+    render();
+  } else {
+    backToAcademyCourse();
+  }
 }
 
 async function submitAcademyEssay(){
@@ -2335,6 +2344,7 @@ async function submitAcademyEssay(){
     reviewed_at: null,
     updated_at: new Date().toISOString()
   }, { onConflict: 'lesson_id,user_id' });
+  await sb.rpc('academy_check_course_completion', { p_lesson_id: lessonId });
   state.academyEssayResult = data;
   await loadAcademyCatalog();
   await loadAcademyCourseDetail(state.academySelectedCourseId);
@@ -2690,7 +2700,19 @@ function renderAcademyLesson(root){
   let bodyHtml = '';
 
   if(lesson.type === 'chapter'){
-    if(lesson.link_mode === 'live'){
+    if(state.academyChapterCourseCompleted){
+      bodyHtml = `
+        <div class="academy-quiz-result passed academy-congrats">
+          <div class="academy-congrats-glyph">🎉</div>
+          <div class="academy-congrats-title">Congratulations!</div>
+          <div class="academy-congrats-copy">You've completed the course. Your certificate is ready.</div>
+          ${course && course.closing_note ? `<p class="body-text academy-closing-note">${escapeHtml(course.closing_note)}</p>` : ''}
+        </div>
+        <div style="margin-top:16px;display:flex;gap:8px;">
+          <button class="btn btn-ghost" onclick="backToAcademyCourse()">View Course</button>
+          <button class="btn btn-gold" onclick="state.academyView='certificate';render();">View Certificate</button>
+        </div>`;
+    } else if(lesson.link_mode === 'live'){
       const linked = state.academyLiveLinkedArticle;
       if(!linked || linked.lessonId !== lesson.id || linked.article === undefined){
         bodyHtml = `<p class="hint" style="text-align:left;">Loading linked article…</p>`;
