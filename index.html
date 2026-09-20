@@ -305,6 +305,7 @@
   .academy-congrats-glyph{font-size:40px;margin-bottom:8px;}
   .academy-congrats-title{font-family:'Fraunces',serif;font-weight:600;font-size:28px;color:var(--paper);margin-bottom:8px;}
   .academy-congrats-copy{color:#c9cdd6;font-size:15px;}
+  .academy-closing-note{margin-top:16px;font-style:italic;color:#b8bcc6;text-align:center;}
   .academy-quiz-score{font-size:22px;font-weight:700;margin-bottom:6px;}
   .academy-certificate{background:#fdfcf9;color:#222;border:2px solid var(--ac-grad-b);border-radius:4px;padding:8px;max-width:640px;margin:20px auto;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   .academy-cert-inner{border:1px solid #c9a960;border-radius:2px;padding:44px 30px 30px;text-align:center;}
@@ -2255,10 +2256,12 @@ async function openAcademyLesson(lessonId){
   render();
 
   const lesson = state.academyLessons.find(l => l.id === lessonId);
-  if(lesson && lesson.type === 'summary_quiz'){
+  if(lesson && (lesson.type === 'summary_quiz' || lesson.type === 'section_quiz')){
     const { data } = await sb.from('academy_quiz_questions').select('*').eq('lesson_id', lessonId).order('sort_order');
     state.academyQuizQuestions = data || [];
     render();
+  } else {
+    state.academyQuizQuestions = [];
   }
   if(lesson && lesson.type === 'chapter' && lesson.link_mode === 'live' && lesson.source_article_id){
     state.academyLiveLinkedArticle = { lessonId, article: undefined };
@@ -2682,6 +2685,7 @@ function renderAcademyLesson(root){
   if(!lesson){ root.innerHTML = `<p class="hint">Lesson not found.</p>`; return; }
   const lessonTr = academyTr('lesson', lesson.id);
   const lessonTitle = (lessonTr && lessonTr.title) || lesson.title;
+  const course = state.academyCourses.find(c => c.id === state.academySelectedCourseId);
 
   let bodyHtml = '';
 
@@ -2715,10 +2719,11 @@ function renderAcademyLesson(root){
             <div class="academy-congrats-glyph">🎉</div>
             <div class="academy-congrats-title">Congratulations!</div>
             <div class="academy-congrats-copy">You've completed the course. Your certificate is ready.</div>
+            ${course && course.closing_note ? `<p class="body-text academy-closing-note">${escapeHtml(course.closing_note)}</p>` : ''}
           </div>
           <div style="margin-top:16px;display:flex;gap:8px;">
-            <button class="btn btn-gold" onclick="state.academyView='certificate';render();">View Your Certificate</button>
-            <button class="btn btn-ghost" onclick="backToAcademyCourse()">Back to Course</button>
+            <button class="btn btn-ghost" onclick="backToAcademyCourse()">View Course</button>
+            <button class="btn btn-gold" onclick="state.academyView='certificate';render();">View Certificate</button>
           </div>`;
       } else {
         bodyHtml = `
@@ -2757,9 +2762,24 @@ function renderAcademyLesson(root){
     }
   } else if(lesson.type === 'essay'){
     if(state.academyEssayResult && state.academyEssayResult.success){
-      bodyHtml = `
-        <div class="academy-quiz-result passed">Essay submitted (${state.academyEssayResult.word_count} words).</div>
-        <button class="btn btn-gold" onclick="backToAcademyCourse()" style="margin-top:16px;">Back to Course</button>`;
+      const cert = state.academyCertificates[state.academySelectedCourseId];
+      if(cert){
+        bodyHtml = `
+          <div class="academy-quiz-result passed academy-congrats">
+            <div class="academy-congrats-glyph">🎉</div>
+            <div class="academy-congrats-title">Congratulations!</div>
+            <div class="academy-congrats-copy">You've completed the course. Your certificate is ready.</div>
+            ${course && course.closing_note ? `<p class="body-text academy-closing-note">${escapeHtml(course.closing_note)}</p>` : ''}
+          </div>
+          <div style="margin-top:16px;display:flex;gap:8px;">
+            <button class="btn btn-ghost" onclick="backToAcademyCourse()">View Course</button>
+            <button class="btn btn-gold" onclick="state.academyView='certificate';render();">View Certificate</button>
+          </div>`;
+      } else {
+        bodyHtml = `
+          <div class="academy-quiz-result passed">Essay submitted (${state.academyEssayResult.word_count} words).</div>
+          <button class="btn btn-gold" onclick="backToAcademyCourse()" style="margin-top:16px;">Back to Course</button>`;
+      }
     } else {
       const essayPrompt = (lessonTr && lessonTr.essay_prompt) || lesson.essay_prompt;
       bodyHtml = `
@@ -2798,15 +2818,6 @@ function renderAcademyCertificate(root){
   }
 
   if(!cert.recipient_name){
-    // If any other certificate already has a name set, reuse it silently
-    // rather than asking again — the one-time entry is per-account, not
-    // per-course.
-    const existingName = Object.values(state.academyCertificates).map(c => c.recipient_name).find(Boolean);
-    if(existingName){
-      saveCertificateRecipientName(cert.id, existingName);
-      root.innerHTML = `<div class="academy-body"><p class="hint">Loading your certificate…</p></div>`;
-      return;
-    }
     root.innerHTML = `
       <div class="academy-body">
         <a class="academy-back" onclick="goToAcademyHome();return false;" href="#">← Academy Home</a>
@@ -2967,6 +2978,7 @@ function renderAcademyDeskCourseEditor(root){
       <textarea id="academyDeskCourseDescInput" placeholder="Course description (short, shown on the course card and header)" style="width:100%;min-height:60px;margin-bottom:8px;">${escapeHtml(draft.description)}</textarea>
       <textarea id="academyDeskCourseIntroInput" placeholder="Course introduction (longer, shown as a collapsible intro above Section 1)" style="width:100%;min-height:100px;margin-bottom:8px;">${escapeHtml(draft.intro_text)}</textarea>
       <input type="text" id="academyDeskCourseCertBgInput" value="${escapeHtml(draft.certificate_bg_url)}" placeholder="Certificate background image URL (e.g. assets/certificate-my-course.jpg) — leave blank for the default design" style="width:100%;margin-bottom:8px;">
+      <textarea id="academyDeskCourseClosingNoteInput" placeholder="Closing note (shown to a student when they complete the course, alongside the congratulations message)" style="width:100%;min-height:80px;margin-bottom:8px;">${escapeHtml(draft.closing_note)}</textarea>
       <div class="row" style="gap:8px;margin-bottom:8px;">
         <select id="academyDeskCourseSubjectInput" class="filter-select">
           ${state.academyDeskSubjects.map(s => `<option value="${s.id}" ${draft.subject_id === s.id ? 'selected' : ''}>${escapeHtml(s.title)}</option>`).join('')}
@@ -3086,6 +3098,8 @@ function renderAcademyDeskCourseEditor(root){
     if(introEl) introEl.oninput = e => { draft.intro_text = e.target.value; };
     const certBgEl = document.getElementById('academyDeskCourseCertBgInput');
     if(certBgEl) certBgEl.oninput = e => { draft.certificate_bg_url = e.target.value; };
+    const closingNoteEl = document.getElementById('academyDeskCourseClosingNoteInput');
+    if(closingNoteEl) closingNoteEl.oninput = e => { draft.closing_note = e.target.value; };
     const subjEl = document.getElementById('academyDeskCourseSubjectInput');
     if(subjEl) subjEl.onchange = e => { draft.subject_id = e.target.value; };
     const statusEl = document.getElementById('academyDeskCourseStatusInput');
@@ -4573,6 +4587,7 @@ function startEditAcademyCourseFields(){
     description: course.description || '',
     intro_text: course.intro_text || '',
     certificate_bg_url: course.certificate_bg_url || '',
+    closing_note: course.closing_note || '',
     subject_id: course.subject_id,
     status: course.status
   };
@@ -4592,6 +4607,7 @@ async function saveAcademyCourseFields(){
     description: d.description,
     intro_text: d.intro_text,
     certificate_bg_url: d.certificate_bg_url || null,
+    closing_note: d.closing_note || null,
     subject_id: d.subject_id,
     status: d.status
   }).eq('id', state.academyDeskCourseId);
