@@ -2351,6 +2351,12 @@ async function submitAcademyEssay(){
   render();
 }
 
+function academyClosingDownloadHtml(course){
+  if(!course || !course.closing_download_url) return '';
+  const label = course.closing_download_label || 'Download PDF';
+  return `<div style="margin-top:14px;text-align:center;"><a class="btn btn-ghost" href="${escapeHtml(course.closing_download_url)}" target="_blank" rel="noopener" download>${escapeHtml(label)}</a></div>`;
+}
+
 function academyWordCount(text){
   const t = (text || '').trim();
   return t ? t.split(/\s+/).length : 0;
@@ -2707,6 +2713,7 @@ function renderAcademyLesson(root){
           <div class="academy-congrats-title">Congratulations!</div>
           <div class="academy-congrats-copy">You've completed the course. Your certificate is ready.</div>
           ${course && course.closing_note ? `<p class="body-text academy-closing-note">${escapeHtml(course.closing_note)}</p>` : ''}
+            ${academyClosingDownloadHtml(course)}
         </div>
         <div style="margin-top:16px;display:flex;gap:8px;">
           <button class="btn btn-ghost" onclick="backToAcademyCourse()">View Course</button>
@@ -2742,6 +2749,7 @@ function renderAcademyLesson(root){
             <div class="academy-congrats-title">Congratulations!</div>
             <div class="academy-congrats-copy">You've completed the course. Your certificate is ready.</div>
             ${course && course.closing_note ? `<p class="body-text academy-closing-note">${escapeHtml(course.closing_note)}</p>` : ''}
+            ${academyClosingDownloadHtml(course)}
           </div>
           <div style="margin-top:16px;display:flex;gap:8px;">
             <button class="btn btn-ghost" onclick="backToAcademyCourse()">View Course</button>
@@ -2792,6 +2800,7 @@ function renderAcademyLesson(root){
             <div class="academy-congrats-title">Congratulations!</div>
             <div class="academy-congrats-copy">You've completed the course. Your certificate is ready.</div>
             ${course && course.closing_note ? `<p class="body-text academy-closing-note">${escapeHtml(course.closing_note)}</p>` : ''}
+            ${academyClosingDownloadHtml(course)}
           </div>
           <div style="margin-top:16px;display:flex;gap:8px;">
             <button class="btn btn-ghost" onclick="backToAcademyCourse()">View Course</button>
@@ -3002,6 +3011,10 @@ function renderAcademyDeskCourseEditor(root){
       <input type="text" id="academyDeskCourseCertBgInput" value="${escapeHtml(draft.certificate_bg_url)}" placeholder="Certificate background image URL (e.g. assets/certificate-my-course.jpg) — leave blank for the default design" style="width:100%;margin-bottom:8px;">
       <textarea id="academyDeskCourseClosingNoteInput" placeholder="Closing note (shown to a student when they complete the course, alongside the congratulations message)" style="width:100%;min-height:80px;margin-bottom:8px;">${escapeHtml(draft.closing_note)}</textarea>
       <div class="row" style="gap:8px;margin-bottom:8px;">
+        <input type="text" id="academyDeskCourseDownloadUrlInput" value="${escapeHtml(draft.closing_download_url)}" placeholder="Download URL (e.g. assets/one-god-in-jesus-christ.pdf) — optional" style="flex:2;">
+        <input type="text" id="academyDeskCourseDownloadLabelInput" value="${escapeHtml(draft.closing_download_label)}" placeholder="Button text (default: Download PDF)" style="flex:1;">
+      </div>
+      <div class="row" style="gap:8px;margin-bottom:8px;">
         <select id="academyDeskCourseSubjectInput" class="filter-select">
           ${state.academyDeskSubjects.map(s => `<option value="${s.id}" ${draft.subject_id === s.id ? 'selected' : ''}>${escapeHtml(s.title)}</option>`).join('')}
         </select>
@@ -3122,6 +3135,10 @@ function renderAcademyDeskCourseEditor(root){
     if(certBgEl) certBgEl.oninput = e => { draft.certificate_bg_url = e.target.value; };
     const closingNoteEl = document.getElementById('academyDeskCourseClosingNoteInput');
     if(closingNoteEl) closingNoteEl.oninput = e => { draft.closing_note = e.target.value; };
+    const downloadUrlEl = document.getElementById('academyDeskCourseDownloadUrlInput');
+    if(downloadUrlEl) downloadUrlEl.oninput = e => { draft.closing_download_url = e.target.value; };
+    const downloadLabelEl = document.getElementById('academyDeskCourseDownloadLabelInput');
+    if(downloadLabelEl) downloadLabelEl.oninput = e => { draft.closing_download_label = e.target.value; };
     const subjEl = document.getElementById('academyDeskCourseSubjectInput');
     if(subjEl) subjEl.onchange = e => { draft.subject_id = e.target.value; };
     const statusEl = document.getElementById('academyDeskCourseStatusInput');
@@ -4610,6 +4627,8 @@ function startEditAcademyCourseFields(){
     intro_text: course.intro_text || '',
     certificate_bg_url: course.certificate_bg_url || '',
     closing_note: course.closing_note || '',
+    closing_download_url: course.closing_download_url || '',
+    closing_download_label: course.closing_download_label || '',
     subject_id: course.subject_id,
     status: course.status
   };
@@ -4630,6 +4649,8 @@ async function saveAcademyCourseFields(){
     intro_text: d.intro_text,
     certificate_bg_url: d.certificate_bg_url || null,
     closing_note: d.closing_note || null,
+    closing_download_url: d.closing_download_url || null,
+    closing_download_label: d.closing_download_label || null,
     subject_id: d.subject_id,
     status: d.status
   }).eq('id', state.academyDeskCourseId);
